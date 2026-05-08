@@ -1,0 +1,46 @@
+"""
+SQLAlchemy Models
+"""
+from app.models.catalogos import (
+    TipoPaciente,
+    Sucursal,
+    Nacionalidad,
+    Rol,
+    Especialidad,
+    Servicio,
+    MedioContacto,
+    EstadoCita,
+    TipoAntecedente
+)
+from app.models.user import User
+from app.models.patient import Patient
+from app.models.employee import Employee
+from app.models.appointment import Appointment, BloqueoAgenda
+from app.models.consultation import Consultation, ConsultationPhoto
+from app.models.prescription import Prescription, PrescriptionMedicine
+from app.models.clinical_history import ClinicalHistory, ConsentimientoPaciente
+
+__all__ = [
+    # Catálogos
+    "TipoPaciente",
+    "Sucursal",
+    "Nacionalidad",
+    "Rol",
+    "Especialidad",
+    "Servicio",
+    "MedioContacto",
+    "EstadoCita",
+    "TipoAntecedente",
+    # Principales
+    "User",
+    "Patient",
+    "Employee",
+    "Appointment",
+    "BloqueoAgenda",
+    "Consultation",
+    "ConsultationPhoto",
+    "Prescription",
+    "PrescriptionMedicine",
+    "ClinicalHistory",
+    "ConsentimientoPaciente",
+]

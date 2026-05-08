@@ -1,0 +1,94 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Usuario {
+  id                    String    @id @default(uuid())
+  email                 String    @unique
+  password_hash         String
+  activo                Boolean   @default(true)
+  ultimo_acceso         DateTime?
+  fecha_creacion        DateTime  @default(now())
+  fecha_actualizacion   DateTime  @updatedAt
+
+  refresh_tokens        RefreshToken[]
+  sesiones_activas      SesionActiva[]
+  intentos_fallidos     IntentoFallido[]
+
+  @@map("usuarios")
+}
+
+model RefreshToken {
+  id                    String    @id @default(uuid())
+  usuario_id            String
+  token                 String    @unique
+  expires_at            DateTime
+  revocado              Boolean   @default(false)
+  revocado_at           DateTime?
+  ip_address            String?
+  user_agent            String?
+  fecha_creacion        DateTime  @default(now())
+
+  usuario               Usuario   @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+
+  @@index([usuario_id])
+  @@index([token])
+  @@index([expires_at])
+  @@map("refresh_tokens")
+}
+
+model SesionActiva {
+  id                    String    @id @default(uuid())
+  usuario_id            String
+  token_jti             String    @unique
+  ip_address            String?
+  user_agent            String?
+  expires_at            DateTime
+  fecha_creacion        DateTime  @default(now())
+  ultima_actividad      DateTime  @default(now())
+
+  usuario               Usuario   @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+
+  @@index([usuario_id])
+  @@index([token_jti])
+  @@index([expires_at])
+  @@map("sesiones_activas")
+}
+
+model IntentoFallido {
+  id                    String    @id @default(uuid())
+  usuario_id            String?
+  email                 String
+  ip_address            String?
+  user_agent            String?
+  razon                 String?
+  fecha_creacion        DateTime  @default(now())
+
+  usuario               Usuario?  @relation(fields: [usuario_id], references: [id], onDelete: SetNull)
+
+  @@index([email])
+  @@index([ip_address])
+  @@index([fecha_creacion])
+  @@map("intentos_fallidos")
+}
+
+model AuditoriaAuth {
+  id                    String    @id @default(uuid())
+  usuario_id            String?
+  accion                String
+  detalle               Json?
+  ip_address            String?
+  user_agent            String?
+  exitoso               Boolean   @default(true)
+  fecha_creacion        DateTime  @default(now())
+
+  @@index([usuario_id])
+  @@index([accion])
+  @@index([fecha_creacion])
+  @@map("auditoria_auth")
+}

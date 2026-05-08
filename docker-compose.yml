@@ -1,0 +1,92 @@
+# Docker Compose para Dental White - Stack Completo
+# Backend: FastAPI + PostgreSQL + pgAdmin + Nginx
+services:
+  # Base de datos PostgreSQL
+  postgres:
+    image: postgres:17-alpine
+    container_name: dental_white_db
+    environment:
+      POSTGRES_DB: dental_white
+      POSTGRES_USER: dental_admin
+      POSTGRES_PASSWORD: dental_secret_2026
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - dental_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dental_admin -d dental_white"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # pgAdmin para administración de base de datos
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: dental_white_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@dentalwhite.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_LISTEN_PORT: 80
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - dental_network
+    restart: unless-stopped
+    depends_on:
+      - postgres
+
+  # Backend FastAPI
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dental_white_backend
+    environment:
+      DATABASE_URL: postgresql://dental_admin:dental_secret_2026@postgres:5432/dental_white
+      SECRET_KEY: dental_jwt_super_secret_key_2026_CHANGE_IN_PRODUCTION_MIN_32_CHARS
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 10080
+      CORS_ORIGINS: http://localhost,http://localhost:80,http://localhost:5173
+      ENVIRONMENT: development
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    networks:
+      - dental_network
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+
+  # Frontend (Built with Nginx)
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dental_white_frontend
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - dental_network
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+networks:
+  dental_network:
+    driver: bridge

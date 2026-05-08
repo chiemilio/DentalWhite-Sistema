@@ -1,0 +1,388 @@
+{
+  "systemInfo": {
+    "name": "Dental White",
+    "slogan": "Tu sonrisa, nuestra pasión",
+    "version": "0.0.1",
+    "type": "module",
+    "projectName": "@figma/my-make-file"
+  },
+  "contact": {
+    "phone1": "55 1234 5678",
+    "phone2": "55 8765 4321",
+    "whatsapp": "+52 1 429 130 9742",
+    "emailContact": "contacto@dentalwhite.com",
+    "emailAppointments": "citas@dentalwhite.com",
+    "mainAddress": "Calle primero de mayo #9, Pénjamo Gto"
+  },
+  "director": {
+    "name": "Dr. Faustino Vázquez Rodríguez",
+    "title": "Cirujano Dentista",
+    "university": "Universidad Michoacana de San Nicolás de Hidalgo (UMSNH)",
+    "specialty": "Ortodoncia",
+    "diplomados": [
+      "Implantología",
+      "Rehabilitación sobre prótesis"
+    ],
+    "masters": "Periodoncia con implantes - Universidad Francisco de Victoria, Madrid, España"
+  },
+  "mission": "Brindar atención odontológica para nuestros pacientes con un trato más cercano, honesto y respetuoso, ofreciendo soluciones mediante el uso de tecnología, procesos seguros y equipo capacitado, enfocados en la prevención de la salud bucal.",
+  "vision": "Ser un consultorio dental reconocido por su profesionalismo, atención empática, actualización constante y compromiso para mejorar la calidad de vida de nuestros pacientes. Ser competentes dentro del área de salud.",
+  "userRoles": [
+    "patient",
+    "receptionist",
+    "doctor",
+    "admin"
+  ],
+  "users": [
+    {
+      "id": "1",
+      "email": "admin@dentalwhite.com",
+      "password": "admin123",
+      "role": "admin",
+      "name": "Administrador Principal"
+    },
+    {
+      "id": "2",
+      "email": "recepcion@dentalwhite.com",
+      "password": "recep123",
+      "role": "receptionist",
+      "name": "María González",
+      "phone": "5511111111",
+      "workCenter": "Sucursal Centro",
+      "hireDate": "2025-03-01",
+      "status": "active"
+    },
+    {
+      "id": "3",
+      "email": "doctor@dentalwhite.com",
+      "password": "doctor123",
+      "role": "doctor",
+      "name": "Dr. Carlos Méndez",
+      "phone": "5522222222",
+      "specialty": "Odontología General",
+      "workCenter": "Sucursal Centro",
+      "hireDate": "2025-02-01",
+      "status": "active"
+    },
+    {
+      "id": "4",
+      "email": "paciente@example.com",
+      "password": "paciente123",
+      "role": "patient",
+      "name": "Juan Pérez",
+      "phone": "5512345678",
+      "age": 32,
+      "sex": "Masculino",
+      "address": "Calle Principal 123",
+      "colony": "Centro",
+      "delegation": "Cuauhtémoc"
+    }
+  ],
+  "workCenters": [
+    {
+      "id": "1",
+      "name": "Sucursal Centro",
+      "address": "Av. Juárez 100, Centro",
+      "location": "Calle primero de mayo #9, Pénjamo Gto",
+      "colorTheme": "sky",
+      "phone": "55 1234 5678"
+    },
+    {
+      "id": "2",
+      "name": "Sucursal Norte",
+      "address": "Av. Insurgentes 200, Polanco",
+      "location": "Centro, Valle de Santiago Gto",
+      "colorTheme": "blue",
+      "phone": "55 8765 4321"
+    },
+    {
+      "id": "3",
+      "name": "Sucursal Sur",
+      "address": "Av. Universidad 300, Coyoacán",
+      "location": "Centro, Abasolo Gto",
+      "colorTheme": "cyan",
+      "phone": "55 1234 5678"
+    }
+  ],
+  "services": [
+    {
+      "id": "1",
+      "name": "Limpieza Dental",
+      "description": "Es el cuidado preventivo para mantener una buena higiene de la boca. La falta de higiene conllevar una acumulación excesiva de placa bacteriana y sarro en la boca que pueden desembocar en Enfermedades Dentales",
+      "branch": "Pénjamo",
+      "examplePrice": 500
+    },
+    {
+      "id": "2",
+      "name": "Ortodoncia",
+      "description": "Corrige la mala posición de los huesos y dientes mediante la aplicación de diferentes tipos de fuerzas con aparatos, su objetivo es alinear los dientes, corregir problemas de mordida, mejorar la estética y función bucal.",
+      "branch": "Pénjamo",
+      "examplePrice": 15000
+    },
+    {
+      "id": "3",
+      "name": "Endodoncia",
+      "description": "Consiste en eliminar una parte profunda del diente, la cual se encuentra lesionada o infectada, algunos de los principales motivos para realizarla es limpiar una parte del diente por dentro y rellenarla con otro material.",
+      "branch": "Pénjamo",
+      "examplePrice": 1500
+    },
+    {
+      "id": "4",
+      "name": "Extracción",
+      "description": "Es la eliminación por completo un diente de su cavidad. Se realiza por caries severas, infecciones, enfermedad periodontal, fracturas o para ortodoncia.",
+      "branch": "Pénjamo",
+      "examplePrice": 800
+    },
+    {
+      "id": "5",
+      "name": "Blanqueamiento",
+      "description": "Es un tratamiento estético no invasivo para eliminar las manchas y la suciedad de los dientes, con el objetivo de tener un tono más blanco y brillante de las piezas.",
+      "branch": "Pénjamo",
+      "examplePrice": 3000
+    },
+    {
+      "id": "6",
+      "name": "Prótesis Dentales",
+      "description": "Es un dispositivo artificial, diseñado para restaurar la funcionalidad y estética de la boca al sustituir uno o más dientes perdidos o dañados. Mejora la masticación, el habla y la apariencia facial, y puede ser fija o removible.",
+      "branch": "Pénjamo"
+    },
+    {
+      "id": "7",
+      "name": "Revisión General",
+      "description": "Examen exhaustivo y preventivo para evaluar el estado integral de la salud bucodental. Consiste en la inspección de dientes, encías, lengua, boca y articulación temporomandibular para detectar problemas antes de que causen dolor.",
+      "branch": "Pénjamo",
+      "examplePrice": 300
+    },
+    {
+      "id": "8",
+      "name": "Prótesis Dentales",
+      "description": "Es un dispositivo artificial, diseñado para restaurar la funcionalidad y estética de la boca al sustituir uno o más dientes perdidos o dañados. Mejora la masticación, el habla y la apariencia facial, y puede ser fija o removible.",
+      "branch": "Valle de Santiago"
+    },
+    {
+      "id": "9",
+      "name": "Implantes Dentales",
+      "description": "Son raíces artificiales de titanio que se colocan en el hueso maxilar para reemplazar dientes perdidos. Ofrecen una solución permanente y natural para recuperar la función masticatoria y estética dental.",
+      "branch": "Valle de Santiago"
+    },
+    {
+      "id": "10",
+      "name": "Cirugía Maxilofacial",
+      "description": "Especialidad quirúrgica que trata enfermedades, lesiones y defectos en la cabeza, cuello, cara, mandíbulas y tejidos duros y blandos de la región oral y maxilofacial.",
+      "branch": "Valle de Santiago"
+    },
+    {
+      "id": "11",
+      "name": "Periodoncia",
+      "description": "Tratamiento especializado de las encías y el hueso que soporta los dientes. Previene y trata enfermedades periodontales como gingivitis y periodontitis.",
+      "branch": "Valle de Santiago"
+    },
+    {
+      "id": "12",
+      "name": "Odontopediatría",
+      "description": "Atención dental especializada para niños desde la infancia hasta la adolescencia. Cuidamos la salud bucal de los más pequeños con técnicas adaptadas a su edad.",
+      "branch": "Abasolo"
+    },
+    {
+      "id": "13",
+      "name": "Diseño de Sonrisa",
+      "description": "Tratamiento estético integral que combina diferentes procedimientos para lograr la sonrisa perfecta. Incluye carillas, blanqueamiento y alineación dental.",
+      "branch": "Abasolo"
+    },
+    {
+      "id": "14",
+      "name": "Coronas y Puentes",
+      "description": "Restauraciones dentales fijas que cubren o reemplazan dientes dañados o perdidos. Devuelven la funcionalidad y estética a tu sonrisa.",
+      "branch": "Abasolo"
+    },
+    {
+      "id": "15",
+      "name": "Rehabilitación Oral",
+      "description": "Tratamiento integral que combina diferentes especialidades para restaurar la función, estética y salud de toda la boca.",
+      "branch": "Abasolo"
+    }
+  ],
+  "patients": [
+    {
+      "id": "4",
+      "name": "Juan Pérez",
+      "email": "paciente@example.com",
+      "phone": "5512345678",
+      "age": 32,
+      "sex": "Masculino",
+      "address": "Calle Principal 123",
+      "colony": "Centro",
+      "municipality": "Cuauhtémoc",
+      "occupation": "Ingeniero",
+      "patientType": "Regular",
+      "registrationDate": "2026-01-15"
+    },
+    {
+      "id": "5",
+      "name": "María López",
+      "email": "maria.lopez@example.com",
+      "phone": "5523456789",
+      "age": 28,
+      "sex": "Femenino",
+      "address": "Av. Reforma 456",
+      "colony": "Polanco",
+      "municipality": "Miguel Hidalgo",
+      "occupation": "Diseñadora",
+      "patientType": "Regular",
+      "registrationDate": "2026-01-20"
+    },
+    {
+      "id": "6",
+      "name": "Ana Rodríguez",
+      "email": "ana.rodriguez@example.com",
+      "phone": "5534567890",
+      "age": 45,
+      "sex": "Femenino",
+      "address": "Calle Norte 789",
+      "colony": "Del Valle",
+      "municipality": "Benito Juárez",
+      "occupation": "Abogada",
+      "patientType": "Primera vez",
+      "registrationDate": "2026-02-01"
+    },
+    {
+      "id": "7",
+      "name": "Carlos Martínez",
+      "email": "carlos.martinez@example.com",
+      "phone": "5545678901",
+      "age": 12,
+      "sex": "Masculino",
+      "address": "Calle Sur 321",
+      "colony": "Coyoacán",
+      "municipality": "Coyoacán",
+      "tutor": "Roberto Martínez",
+      "occupation": "Estudiante",
+      "patientType": "Pediátrico",
+      "registrationDate": "2026-02-05"
+    }
+  ],
+  "employees": [
+    {
+      "id": "1",
+      "name": "Administrador Principal",
+      "email": "admin@dentalwhite.com",
+      "role": "admin",
+      "phone": "5500000000",
+      "hireDate": "2025-01-01",
+      "status": "active"
+    },
+    {
+      "id": "2",
+      "name": "María González",
+      "email": "recepcion@dentalwhite.com",
+      "role": "receptionist",
+      "phone": "5511111111",
+      "workCenter": "Sucursal Centro",
+      "hireDate": "2025-03-01",
+      "status": "active"
+    },
+    {
+      "id": "3",
+      "name": "Dr. Carlos Méndez",
+      "email": "doctor@dentalwhite.com",
+      "role": "doctor",
+      "phone": "5522222222",
+      "specialty": "Odontología General",
+      "workCenter": "Sucursal Centro",
+      "hireDate": "2025-02-01",
+      "status": "active"
+    },
+    {
+      "id": "7",
+      "name": "Dra. Laura Sánchez",
+      "email": "laura.sanchez@dentalwhite.com",
+      "role": "doctor",
+      "phone": "5533333333",
+      "specialty": "Endodoncia",
+      "workCenter": "Sucursal Norte",
+      "hireDate": "2025-04-01",
+      "status": "active"
+    }
+  ],
+  "appointmentStatuses": [
+    "scheduled",
+    "confirmed",
+    "completed",
+    "cancelled"
+  ],
+  "paymentTypes": [
+    "complete",
+    "installment"
+  ],
+  "patientTypes": [
+    "Regular",
+    "Primera vez",
+    "Pediátrico"
+  ],
+  "theme": {
+    "colors": {
+      "primary": "#0284c7",
+      "secondary": "#0ea5e9",
+      "accent": "#2563eb",
+      "background": "#ffffff",
+      "foreground": "oklch(0.145 0 0)",
+      "destructive": "#d4183d",
+      "muted": "#ececf0",
+      "border": "rgba(0, 0, 0, 0.1)"
+    },
+    "brandColors": {
+      "penjamo": "sky",
+      "valleSantiago": "blue",
+      "abasolo": "cyan"
+    },
+    "typography": {
+      "baseFontSize": "16px",
+      "fontWeightMedium": 500,
+      "fontWeightNormal": 400
+    },
+    "borderRadius": {
+      "sm": "0.375rem",
+      "md": "0.475rem",
+      "lg": "0.625rem",
+      "xl": "0.875rem"
+    }
+  },
+  "captcha": {
+    "length": 6,
+    "allowedChars": "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+  },
+  "formats": {
+    "date": "YYYY-MM-DD",
+    "time": "HH:MM",
+    "displayDate": "DD/MM/YYYY"
+  },
+  "assets": {
+    "logo": "figma:asset/da6a072baf78bdc68ca5368ac2123d8644ed8db8.png",
+    "doctorImage": "figma:asset/7fc5ebdb2d35bffb567c0b8e0cfaa57931319cdb.png",
+    "promotionBanner": "figma:asset/6d65dfbab9e3b3e5a0f0c7e8e8f9d1959319b4ca.png",
+    "clinicImages": [
+      "figma:asset/9e7301732c603d31964f65f6cf46f690c1180b7e.png",
+      "figma:asset/e6e4c220d725c1048ef64dcbcb5cfa603119322d.png",
+      "figma:asset/42b0afd7abc99fbcc119fca151c6748bdb2e634d.png"
+    ]
+  },
+  "medicalRecordOptions": {
+    "physicalStates": ["good", "bad", "regular"],
+    "dentalStates": ["good", "bad", "regular"],
+    "faceForms": ["symmetric", "asymmetric"],
+    "labialMusculature": ["weak", "normal", "strong"],
+    "crossbiteTypes": ["unilateral", "bilateral"],
+    "techniqueQuality": ["good", "bad", "regular"]
+  },
+  "reportTypes": [
+    "Servicios más solicitados",
+    "Ingresos por sucursal",
+    "Citas por sucursal",
+    "Total de consultas"
+  ],
+  "periodFilters": [
+    "monthly",
+    "annual",
+    "custom"
+  ]
+}

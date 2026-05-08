@@ -1,0 +1,312 @@
+"""
+Endpoints de Citas
+"""
+from typing import List, Optional
+from datetime import datetime, date
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
+from app.database import get_db
+from app.models.user import User
+from app.models.patient import Patient
+from app.models.appointment import Appointment
+from app.schemas.appointment import AppointmentCreate, AppointmentUpdate, AppointmentResponse
+from app.api.deps import get_current_user, require_role
+from app.core.security import get_password_hash
+
+router = APIRouter()
+
+
+class RegisterAndAppointmentRequest(BaseModel):
+    """Request para registrar paciente y crear cita"""
+    email: str
+    password: str
+    nombre: str
+    apellido_paterno: str
+    telefono: str
+    empleado_id: int
+    servicio_id: int
+    sucursal_id: int
+    fecha_hora: str
+    duracion_minutos: int = 30
+    motivo_consulta: Optional[str] = None
+
+
+@router.post("/register-and-appointment/", response_model=AppointmentResponse, status_code=status.HTTP_201_CREATED)
+def register_and_appointment(
+    data: RegisterAndAppointmentRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("Admin", "SuperAdmin", "Recepcionista"))
+):
+    """Registra paciente y crea cita en una sola llamada"""
+    # Check if user exists
+    existing_user = db.query(User).filter(User.email == data.email).first()
+    if existing_user:
+        existing_patient = db.query(Patient).filter(Patient.usuario_id == existing_user.id).first()
+        if existing_patient:
+            paciente_db = existing_patient
+        else:
+            raise HTTPException(status_code=400, detail="El usuario existe pero no tiene perfil de paciente")
+    else:
+        # Create user
+        db_user = User(
+            email=data.email,
+            password_hash=get_password_hash(data.password),
+            nombre=data.nombre,
+            apellido_paterno=data.apellido_paterno,
+            telefono_principal=data.telefono,
+            rol_id=4,
+            activo=True
+        )
+        db.add(db_user)
+        db.flush()
+        
+        # Create patient
+        last_patient = db.query(Patient).order_by(Patient.id.desc()).first()
+        if last_patient and last_patient.numero_expediente:
+            try:
+                next_num = int(last_patient.numero_expediente.split("-")[1]) + 1
+            except:
+                next_num = 1
+        else:
+            next_num = 1
+        
+        db_patient = Patient(
+            usuario_id=db_user.id,
+            tipo_paciente_id=1,
+            numero_expediente=f"PAC-{next_num:06d}",
+            fecha_nacimiento=date(1990, 1, 1),
+            activo=True
+        )
+        db.add(db_patient)
+        db.flush()
+        paciente_db = db_patient
+    
+    # Create appointment
+    fecha_hora_dt = datetime.fromisoformat(data.fecha_hora.replace("Z", "+00:00"))
+    
+    nueva_cita = Appointment(
+        paciente_id=paciente_db.id,
+        empleado_id=data.empleado_id,
+        servicio_id=data.servicio_id,
+        sucursal_id=data.sucursal_id,
+        estado_cita_id=1,
+        fecha=fecha_hora_dt.date(),
+        hora=fecha_hora_dt.time(),
+        duracion_minutos=data.duracion_minutos,
+        motivo_consulta=data.motivo_consulta,
+        activo=True
+    )
+    db.add(nueva_cita)
+    db.commit()
+    db.refresh(nueva_cita)
+    
+    return AppointmentResponse.from_orm_with_relations(nueva_cita)
+
+
+@router.get("/", response_model=List[AppointmentResponse])
+def list_appointments(
+    skip: int = 0,
+    limit: int = 100,
+    fecha_inicio: datetime | None = Query(None, description="Filtrar desde fecha"),
+    fecha_fin: datetime | None = Query(None, description="Filtrar hasta fecha"),
+    paciente_id: int | None = Query(None, description="Filtrar por paciente"),
+    usuario_id: int | None = Query(None, description="Filtrar por usuario ID"),
+    empleado_id: int | None = Query(None, description="Filtrar por empleado"),
+    estado_id: int | None = Query(None, description="Filtrar por estado"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Lista todas las citas con filtros opcionales
+    """
+    query = db.query(Appointment)
+
+    # Aplicar filtros
+    if fecha_inicio:
+        query = query.filter(Appointment.fecha >= fecha_inicio.date())
+    if fecha_fin:
+        query = query.filter(Appointment.fecha <= fecha_fin.date())
+    
+    # Handle paciente_id - can be either patient table ID or user ID
+    if paciente_id:
+        from app.models.patient import Patient
+        # First try to find patient by usuario_id
+        patient = db.query(Patient).filter(
+            (Patient.usuario_id == paciente_id) | 
+            (Patient.id == paciente_id)
+        ).first()
+        if patient:
+            query = query.filter(Appointment.paciente_id == patient.id)
+        else:
+            # If no patient found, filter by paciente_id directly
+            query = query.filter(Appointment.paciente_id == paciente_id)
+    
+    # Handle usuario_id explicitly
+    if usuario_id:
+        from app.models.patient import Patient
+        patient = db.query(Patient).filter(Patient.usuario_id == usuario_id).first()
+        if patient:
+            query = query.filter(Appointment.paciente_id == patient.id)
+    
+    if empleado_id:
+        query = query.filter(Appointment.empleado_id == empleado_id)
+    if estado_id:
+        query = query.filter(Appointment.estado_cita_id == estado_id)
+
+    appointments = query.order_by(Appointment.fecha.desc(), Appointment.hora.desc()).offset(skip).limit(limit).all()
+    return [AppointmentResponse.from_orm_with_relations(appointment) for appointment in appointments]
+
+
+@router.get("", response_model=List[AppointmentResponse])
+def list_appointments_no_slash(
+    skip: int = 0,
+    limit: int = 100,
+    fecha_inicio: datetime | None = Query(None, description="Filtrar desde fecha"),
+    fecha_fin: datetime | None = Query(None, description="Filtrar hasta fecha"),
+    paciente_id: int | None = Query(None, description="Filtrar por paciente"),
+    usuario_id: int | None = Query(None, description="Filtrar por usuario ID"),
+    empleado_id: int | None = Query(None, description="Filtrar por empleado"),
+    estado_id: int | None = Query(None, description="Filtrar por estado"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Lista todas las citas con filtros opcionales (without trailing slash)
+    """
+    return list_appointments(skip, limit, fecha_inicio, fecha_fin, paciente_id, usuario_id, empleado_id, estado_id, db, current_user)
+
+
+@router.get("/{appointment_id}", response_model=AppointmentResponse)
+def get_appointment(
+    appointment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Obtiene una cita por ID
+    """
+    appointment = db.query(Appointment).filter(Appointment.id == appointment_id).first()
+    if not appointment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Cita no encontrada"
+        )
+    return AppointmentResponse.from_orm_with_relations(appointment)
+
+
+@router.post("/", response_model=AppointmentResponse, status_code=status.HTTP_201_CREATED)
+def create_appointment(
+    appointment_data: AppointmentCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("Admin", "SuperAdmin", "Recepcionista", "Doctor", "Paciente"))
+):
+    """
+    Crea una nueva cita
+    """
+    from datetime import datetime
+    from app.models.patient import Patient
+    
+    # Get patient ID - accept either user ID or patient ID
+    paciente_db = db.query(Patient).filter(
+        (Patient.usuario_id == appointment_data.paciente_id) | 
+        (Patient.id == appointment_data.paciente_id)
+    ).first()
+    if not paciente_db:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El paciente no existe en el sistema"
+        )
+    
+    # Extraer fecha y hora del campo fecha_hora
+    fecha_hora_dt = appointment_data.fecha_hora
+    if isinstance(fecha_hora_dt, str):
+        fecha_hora_dt = datetime.fromisoformat(fecha_hora_dt.replace('Z', '+00:00'))
+    
+    fecha_cita = fecha_hora_dt.date() if hasattr(fecha_hora_dt, 'date') else fecha_hora_dt.date()
+    hora_cita = fecha_hora_dt.time() if hasattr(fecha_hora_dt, 'time') else fecha_hora_dt.time()
+
+    db_appointment = Appointment(
+        paciente_id=paciente_db.id,  # Use the internal patient ID
+        empleado_id=appointment_data.empleado_id,
+        servicio_id=appointment_data.servicio_id,
+        sucursal_id=appointment_data.sucursal_id,
+        estado_cita_id=appointment_data.estado_cita_id,
+        fecha=fecha_cita,
+        hora=hora_cita,
+        duracion_minutos=appointment_data.duracion_minutos,
+        motivo_consulta=appointment_data.motivo,
+        notas=appointment_data.notas
+    )
+
+    db.add(db_appointment)
+    db.commit()
+    db.refresh(db_appointment)
+
+    return AppointmentResponse.from_orm_with_relations(db_appointment)
+
+
+@router.put("/{appointment_id}", response_model=AppointmentResponse)
+def update_appointment(
+    appointment_id: int,
+    appointment_update: AppointmentUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("Admin", "SuperAdmin", "Recepcionista", "Doctor"))
+):
+    """
+    Actualiza una cita
+    """
+    appointment = db.query(Appointment).filter(Appointment.id == appointment_id).first()
+    if not appointment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Cita no encontrada"
+        )
+    
+    # Actualizar campos proporcionados
+    update_data = appointment_update.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(appointment, field, value)
+    
+    db.commit()
+    db.refresh(appointment)
+    
+    return AppointmentResponse.from_orm_with_relations(appointment)
+
+
+@router.put("/{appointment_id}/", response_model=AppointmentResponse, tags=["Appointments"])
+def update_appointment_slash(
+    appointment_id: int,
+    appointment_update: AppointmentUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("Admin", "SuperAdmin", "Recepcionista", "Doctor"))
+):
+    """
+    Actualiza una cita (trailing slash)
+    """
+    return update_appointment(appointment_id, appointment_update, db, current_user)
+
+
+@router.delete("/{appointment_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_appointment(
+    appointment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("Admin", "SuperAdmin", "Recepcionista"))
+):
+    """
+    Cancela/Elimina una cita
+    """
+    appointment = db.query(Appointment).filter(Appointment.id == appointment_id).first()
+    if not appointment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Cita no encontrada"
+        )
+
+    # Podríamos cambiar el estado a "Cancelada" en lugar de eliminar
+    # Por ahora, eliminamos
+    db.delete(appointment)
+    db.commit()
+
+    return None

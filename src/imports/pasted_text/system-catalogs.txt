@@ -1,0 +1,557 @@
+-- ============================================
+-- CATÁLOGOS DEL SISTEMA
+-- ============================================
+
+-- ============================================
+-- Catálogo de pacientes  1
+-- ============================================
+CREATE TABLE cat_tipos_paciente (
+    id SERIAL PRIMARY KEY,
+    nombre_tipo VARCHAR(50) NOT NULL UNIQUE, -- 'Pediátrico', 'Regular', 'Primera Vez'
+    descripcion TEXT                         -- Notas sobre el perfil del paciente
+);
+
+-- ============================================
+-- Catálogo de sucursales 2
+-- ============================================
+CREATE TABLE cat_sucursales (
+    id SERIAL PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL,
+    direccion TEXT NOT NULL,
+    telefono_contacto1 VARCHAR(20) not null,
+    telefono_contacto2 VARCHAR(20),
+    whatsapp VARCHAR(20) not null,
+    email  VARCHAR(50) not null,
+    url_google_maps TEXT,
+    -- Horarios de atención
+    hora_apertura TIME NOT NULL,
+    hora_cierre TIME NOT NULL,
+    -- Campos para la Galería -- requerimiento de la Página Principal
+    foto_url TEXT, 
+    activa BOOLEAN DEFAULT TRUE
+);
+
+
+-- ============================================
+-- Catálogo de nacionalidades 3
+-- ============================================
+CREATE TABLE cat_nacionalidades (
+    id SERIAL PRIMARY KEY,
+    codigo_iso CHAR(3) UNIQUE NOT NULL, -- Ej: 'MEX', 'ESP', 'USA'
+    gentilicio TEXT NOT NULL,           -- Ej: 'Mexicana', 'Española'
+    pais TEXT NOT NULL                  -- Ej: 'México', 'España'
+);
+
+-- ============================================
+-- Catálogo roles de usuario 4
+-- ============================================
+CREATE TABLE cat_roles (
+    id SERIAL PRIMARY KEY,
+    nombre_rol VARCHAR(50) UNIQUE NOT NULL,
+    descripcion TEXT -- Opcional, para describir qué puede hacer cada uno de los roles
+);
+
+-- ============================================
+-- Cat ESPECIALIDADES 5
+-- ============================================
+CREATE TABLE cat_especialidades (
+    id SERIAL PRIMARY KEY,
+    nombre_especialidad VARCHAR(100) UNIQUE NOT NULL, -- Ejemplo 'Ortodoncia', 'Endodoncia'
+    descripcion TEXT,
+    activa BOOLEAN DEFAULT TRUE
+);
+
+
+-- ============================================
+-- Cat SERVICIOS 6
+-- ============================================
+CREATE TABLE cat_servicios (
+    id SERIAL PRIMARY KEY,
+    id_especialidad INT NOT NULL REFERENCES cat_especialidades(id),
+    nombre_servicio VARCHAR(100) NOT NULL,
+    descripcion TEXT,
+    costo_base DECIMAL(10, 2) NOT NULL,
+    duracion_estimada INTERVAL NOT NULL, -- Ejemplo hora:Minuto:segundo: '01:00:00'
+    requiere_fotos BOOLEAN DEFAULT FALSE, -- Requerimiento funcional V1
+    activa BOOLEAN DEFAULT TRUE
+);
+
+-- ============================================
+-- CAT MEDIOS DE CONTACTO 7
+-- ============================================
+
+CREATE TABLE cat_medios_contacto (
+    id SERIAL PRIMARY KEY,
+    nombre_medio VARCHAR(50) UNIQUE NOT NULL
+);
+
+
+-- ============================================
+-- Cat Estado de la Cita 8
+-- ============================================
+CREATE TABLE cat_estados_cita (
+    id SERIAL PRIMARY KEY,
+    nombre_estado VARCHAR(50) NOT NULL -- 'Pendiente', 'Confirmada', 'Atendida', 'Cancelada', 'No asistió'
+);
+
+-- ============================================
+-- Cat Tipos Antecedentes 9
+-- ============================================
+CREATE TABLE cat_tipos_antecedentes (
+    id SERIAL PRIMARY KEY,
+    nombre_categoria VARCHAR(100) NOT NULL -- 'Heredofamiliares', 'Patológicos', 'No Patológicos', 'Alergias'
+);
+
+
+-- ------------------------------------------------------------------------------------------------------------------
+-- ============================================
+-- TABLA DEL SISTEMA
+-- ============================================
+
+-- ============================================
+-- TABLA: Usuarios 1
+-- Gestión de autenticación y roles
+-- ============================================
+CREATE TABLE usuarios (
+    id SERIAL PRIMARY KEY,
+    nombre_completo TEXT NOT NULL,
+    curp char(18) ,
+    rfc char(13) ,
+    id_nacionalidad INT not null, 
+    id_rol INT NOT NULL,
+    email1 VARCHAR(100) UNIQUE NOT NULL,
+    email2 VARCHAR(100) ,
+    telefono1 VARCHAR(30) UNIQUE NOT NULL,
+    telefono2 VARCHAR(30) ,
+    whatsapp VARCHAR(30) not null,
+    passwd_encript VARCHAR(150) NOT NULL, -- debe almacenarse una contraseña encriptada
+    -- FALTA role VARCHAR(50) NOT NULL CHECK (role IN ('paciente', 'recepcionista', 'doctor', 'admin')),
+    activo BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_login TIMESTAMP,
+    
+    CONSTRAINT fk_nacionalidad FOREIGN KEY (id_nacionalidad) REFERENCES cat_nacionalidades(id),  -- FK cat_nacionalidad
+    CONSTRAINT fk_rol FOREIGN KEY (id_rol) REFERENCES cat_roles(id)  -- Llave foránea para el rol
+);
+
+CREATE INDEX idx_usuarios_email1 ON usuarios(email1);
+CREATE INDEX idx_usuarios_telefono1 ON usuarios(telefono1);
+CREATE INDEX idx_usuarios_nombre ON usuarios(nombre_completo);
+CREATE INDEX idx_usuarios_whatsapp ON usuarios(whatsapp);
+
+-- ============================================
+-- TABLA: Pacientes 2
+-- ============================================
+CREATE TABLE pacientes (
+    id SERIAL PRIMARY KEY,
+    id_usuario INT NOT NULL UNIQUE REFERENCES usuarios(id),
+    id_tipo_paciente INT NOT NULL REFERENCES cat_tipos_paciente(id),
+    id_sucursal_frecuente INT REFERENCES cat_sucursales(id), -- Sucursal donde se atiende
+    fecha_nacimiento DATE NOT NULL,
+    sexo VARCHAR(15) CHECK (sexo IN ('Masculino', 'Femenino', 'No binario', 'No informar')), -- Masculino, Femenino, No binario o No informar
+    direccion_completa TEXT,
+    ocupacion VARCHAR(100),
+    nombre_tutor VARCHAR(200),   -- Requerimiento para pacientes Pediátricos
+    firma_digitalizada TEXT,     -- Firma digitalizada (Consentimiento)
+    activo BOOLEAN DEFAULT TRUE
+);
+
+-- ============================================
+-- TABLA: Empleados 3
+-- ============================================
+CREATE TABLE empleados (
+    id SERIAL PRIMARY KEY,
+    id_usuario INT NOT NULL UNIQUE REFERENCES usuarios(id),
+    id_sucursal_asignada INT NOT NULL REFERENCES cat_sucursales(id),
+    cedula_profesional VARCHAR(50), 	 -- Solo para doctores
+    especialidad_principal VARCHAR(100), -- Se puede convertir en catálogo después
+    biografia_resumen TEXT, 		 -- Para mostrar en la Página Principal
+    foto_perfil_url TEXT,
+    activo BOOLEAN DEFAULT TRUE
+);
+
+
+-- ============================================
+-- TABLA: CITAS 4
+-- ============================================
+CREATE TABLE citas (
+    id SERIAL PRIMARY KEY,
+    id_paciente INT NOT NULL REFERENCES pacientes(id),
+    id_doctor INT NOT NULL REFERENCES empleados(id),
+    id_sucursal INT NOT NULL REFERENCES cat_sucursales(id),
+    id_servicio INT NOT NULL REFERENCES cat_servicios(id),
+    id_medio_contacto INT NOT NULL REFERENCES cat_medios_contacto(id),
+    id_estado INT NOT NULL DEFAULT 1 REFERENCES cat_estados_cita(id),
+    fecha_cita DATE NOT NULL,
+    hora_cita TIME NOT NULL,
+    motivo_consulta TEXT,   				-- Notas para el motivo de la consulta (Requerimiento Panel Médico)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,     -- Control de auditoría
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_citas_fecha ON citas(fecha_cita);
+CREATE INDEX idx_citas_doctor ON citas(id_doctor);
+CREATE INDEX idx_citas_sucursal ON citas(id_sucursal);
+
+-- ============================================
+-- TABLA: Bloqueo de AGENDA 5
+-- ============================================
+CREATE TABLE bloqueos_agenda (
+    id SERIAL PRIMARY KEY,
+    id_sucursal INT NOT NULL REFERENCES cat_sucursales(id),
+    id_doctor INT REFERENCES empleados(id), -- NULL si el bloqueo es para toda la sucursal
+    fecha_bloqueo DATE NOT NULL,
+    hora_inicio TIME, -- NULL si es el día completo
+    hora_fin TIME,    -- NULL si es el día completo
+    motivo VARCHAR(255), -- 'Día festivo', 'Mantenimiento', 'Permiso médico'
+    created_by INT REFERENCES usuarios(id)
+);
+
+-- ============================================
+-- TABLA: CONSULTA 6
+-- ============================================
+CREATE TABLE consultas (
+    id SERIAL PRIMARY KEY,
+    id_cita INT NOT NULL UNIQUE REFERENCES citas(id), -- Una consulta pertenece a una cita
+    id_paciente INT NOT NULL REFERENCES pacientes(id),
+    id_doctor INT NOT NULL REFERENCES empleados(id),
+    
+    -- Campos clínicos solicitados en el Panel Médico
+    reconocimiento_hallazgos TEXT, -- Hallazgos del reconocimiento médico
+    diagnostico TEXT,              -- Diagnóstico del paciente
+    tratamiento_indicaciones TEXT, -- Tratamiento a seguir
+    
+    -- Signos vitales (Solicitados en el formato de Receta/Expediente)
+    peso_kg DECIMAL(5,2),
+    talla_cm INT,
+    temperatura_c DECIMAL(4,2),
+    presion_arterial VARCHAR(20), -- Ej: '120/80'
+    pulso_bpm INT,
+    glucosa_mgdl INT,
+    
+    fecha_consulta TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_consultas_paciente ON consultas(id_paciente);
+CREATE INDEX idx_consultas_fecha ON consultas(fecha_consulta);
+
+-- ============================================
+-- TABLA: CONSULTAS FOTOS 7
+-- ============================================
+CREATE TABLE consultas_fotos (
+    id SERIAL PRIMARY KEY,
+    id_consulta INT NOT NULL REFERENCES consultas(id),
+    url_foto TEXT NOT NULL,         -- Ruta en el servidor 
+    etiqueta_servicio VARCHAR(100), -- Nombre del servicio al momento de la foto
+    tipo_foto VARCHAR(20),          -- 'Antes', 'Durante', 'Después'
+    fecha_foto TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ============================================
+-- TABLA: RECETA 8
+-- ============================================
+
+CREATE TABLE recetas (
+    id SERIAL PRIMARY KEY,
+    id_consulta INT NOT NULL UNIQUE REFERENCES consultas(id), -- Una receta por consulta
+    id_doctor INT NOT NULL REFERENCES empleados(id),
+    id_paciente INT NOT NULL REFERENCES pacientes(id),
+    folio VARCHAR(20) UNIQUE NOT NULL, -- Ej: 'NO-0953'
+    
+    -- Los signos vitales se pueden jalar de 'consultas', pero se dejan aquí ya que la receta será un registro histórico inalterable.
+    peso_receta DECIMAL(5,2),
+    presion_receta VARCHAR(20),
+    pulso_receta INT,
+    glucosa_receta INT,
+    
+    indicaciones_generales TEXT, -- Recomendaciones adicionales (ej. no comer irritantes)
+    fecha_emision TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_recetas_folio ON recetas(folio);
+
+-- ============================================
+-- TABLA: ASOCIATIVA RECETA MEDICAMENTOS 9
+-- ============================================
+CREATE TABLE receta_medicamentos (
+    id SERIAL PRIMARY KEY,
+    id_receta INT NOT NULL REFERENCES recetas(id) ON DELETE CASCADE,
+    nombre_medicamento VARCHAR(150) NOT NULL, 	-- Ej: 'Amoxicilina'
+    presentacion VARCHAR(100),              	-- Ej: 'Tabletas 500mg'
+    dosis VARCHAR(100) NOT NULL,              	-- Ej: '1 cada 8 horas'
+    duracion VARCHAR(100) NOT NULL            	-- Ej: 'Por 7 días'
+);
+
+
+-- ============================================
+-- TABLA: ASOCIATIVA SUCURSALES - ESPECIALIDADES 10
+-- ============================================
+CREATE TABLE sucursal_especialidades (
+    id_sucursal INT NOT NULL REFERENCES cat_sucursales(id),
+    id_especialidad INT NOT NULL REFERENCES cat_especialidades(id),
+    PRIMARY KEY (id_sucursal, id_especialidad)
+);
+
+-- ============================================
+-- TABLA: Asociativa empleado_especialidades 11
+-- ============================================
+CREATE TABLE empleado_especialidades (
+    id_empleado INT NOT NULL REFERENCES empleados(id),
+    id_especialidad INT NOT NULL REFERENCES cat_especialidades(id),
+    PRIMARY KEY (id_empleado, id_especialidad)
+);
+
+-- ============================================
+-- TABLA: Asociativa historial_clinico 12
+-- ============================================
+CREATE TABLE historial_clinico (
+    id SERIAL PRIMARY KEY,
+    id_paciente INT NOT NULL REFERENCES pacientes(id),
+    id_categoria INT NOT NULL REFERENCES cat_tipos_antecedentes(id),
+    descripcion_padecimiento TEXT NOT NULL, -- Ej: 'Diabetes tipo 2', 'Alérgico a la Penicilina'
+    es_activo BOOLEAN DEFAULT TRUE,          -- Para saber si aún padece eso
+    fecha_diagnostico DATE,
+    notas_adicionales TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_historial_paciente ON historial_clinico(id_paciente);
+
+-- ============================================
+-- TABLA: Asociativa consentimiento del paciente 13
+-- ============================================
+CREATE TABLE consentimientos_paciente (
+    id SERIAL PRIMARY KEY,
+    id_paciente INT NOT NULL REFERENCES pacientes(id),
+    id_servicio INT NOT NULL REFERENCES cat_servicios(id),
+    id_cita INT REFERENCES citas(id), -- Opcional, para vincular a una visita específica
+    
+    texto_legal_aceptado TEXT NOT NULL, -- Copia del texto legal al momento de la firma
+    firma_base64 TEXT NOT NULL,         -- La firma digitalizada del paciente
+    fecha_firma TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ip_registro VARCHAR(45)             -- Para validez legal digital como referencia del equipo
+);
+
+-- _______________________________________________________________________________________________________________________
+-- ============================================
+-- Llenado de tablas y catálogos -- EJEMPLOS --
+-- ============================================
+
+-- Inserción inicial basada en los documentos de Lily catálogo de tipos de pacientes 
+
+INSERT INTO cat_tipos_paciente (nombre_tipo) VALUES 
+('Regular'), 
+('Pediátrico'), 
+('Primera Vez');
+
+-- Datos prueba CAT TIPOS ATECEDENTES 
+INSERT INTO cat_tipos_antecedentes (nombre_categoria) VALUES 
+('Heredofamiliares'), 
+('Antecedentes Patológicos'), 
+('Antecedentes No Patológicos'), 
+('Alergias y Reacciones'),
+('Intervenciones Quirúrgicas');
+
+
+-- Datos prueba sucursales 
+
+INSERT INTO cat_sucursales (
+    nombre, direccion, telefono_contacto1, telefono_contacto2, 
+    whatsapp, email, url_google_maps, hora_apertura, 
+    hora_cierre, foto_url, activa
+) VALUES 
+(
+    'Dental White - Sucursal Centro', 
+    'Av. Reforma 123, Col. Centro, Ciudad de México', 
+    '5551234567', 
+    '5551234568', 
+    '52551234567', 
+    'centro@dentalwhite.com', 
+    'https://maps.app.goo.gl/ejemplo', 
+    '09:00:00', 
+    '18:00:00', 
+    'https://sitio.com/fotos/sucursal1.jpg', 
+    TRUE
+),
+(
+    'Dental White - Sucursal Norte', 
+    'Calzada de Guadalupe 456, Col. Industrial, Ciudad de México', 
+    '5559876543', 
+    NULL, 
+    '525559876543', 
+    'norte@dentalwhite.com', 
+    'https://maps.app.goo.gl/ejemplo2', 
+    '10:00:00', 
+    '20:00:00', 
+    'https://sitio.com/fotos/sucursal2.jpg', 
+    TRUE
+);
+
+-- ejemplos nacionalidades
+INSERT INTO cat_nacionalidades (codigo_iso, gentilicio, pais) VALUES 
+('MEX', 'Mexicana', 'México'),
+('USA', 'Estadounidense', 'Estados Unidos'),
+('CAN', 'Canadiense', 'Canadá'),
+('ESP', 'Española', 'España'),
+('COL', 'Colombiana', 'Colombia'),
+('ARG', 'Argentina', 'Argentina'),
+('VEN', 'Venezolana', 'Venezuela'),
+('GTM', 'Guatemalteca', 'Guatemala');
+
+-- Catálogo de ROLES 
+
+INSERT INTO cat_roles (nombre_rol, descripcion) VALUES 
+('Admin', 'Control total del sistema y gestión de usuarios'),
+('Doctor', 'Acceso a expedientes clínicos y gestión de citas'),
+('Recepcionista', 'Gestión de agenda, cobros y registro de pacientes'),
+('Paciente', 'Acceso a su propio historial y consulta de citas');
+
+-- USUARIOS 
+-- Roles: 1:Admin, 2:Doctor, 3:Recepcionista, 4:Paciente
+-- Nacionalidad: 1:Mexicana
+INSERT INTO usuarios (
+    nombre_completo, curp, rfc, id_nacionalidad, id_rol, 
+    email1, telefono1, whatsapp, passwd_encript, activo
+) VALUES 
+-- Personal Clínico
+('Dr. Faustino Vazquez Rodriguez', 'VARF700512HDFRRR01', 'VARF700512P87', 1, 2, 'faustino.vazquez@dentalwhite.com', '5511223344', '525511223344', 'cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e', TRUE),
+('Laura Sanchez Meza', 'SAML850314MDFRRR02', 'SAML850314H45', 1, 3, 'laura.recepcion@dentalwhite.com', '5522334455', '525522334455', 'cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e', TRUE),
+
+-- Pacientes de los requerimientos
+('Juan Pérez Soto', 'PESJ940520HDFRRR03', 'PESJ940520A12', 1, 4, 'paciente@example.com', '5512345678', '525512345678', '4813494d137e1631bba301d5acab6e7bb7aa74ce1185d456565ef51d737677b2', TRUE),
+('Ana Rodríguez Luna', 'ROLA810215MDFRRR04', 'ROLA810215L45', 1, 4, 'ana.rodriguez@example.com', '5534567890', '525534567890', '4813494d137e1631bba301d5acab6e7bb7aa74ce1185d456565ef51d737677b2', TRUE),
+('Carlos Martínez Ruiz', 'MARC140830HDFRRR05', 'MARC140830R12', 1, 4, 'carlos.martinez@example.com', '5545678901', '525545678901', '4813494d137e1631bba301d5acab6e7bb7aa74ce1185d456565ef51d737677b2', TRUE);
+
+
+-- Empleados 
+INSERT INTO empleados (
+    id_usuario, id_sucursal_asignada, cedula_profesional, 
+    especialidad_principal, biografia_resumen, activo
+) VALUES 
+(1, 1, 'P8708', 'Estética Dental', 'Especialista en diseño de sonrisa con alta tecnología.', TRUE),
+(2, 1, NULL, 'Recepción', 'Atención personalizada y gestión de citas.', TRUE);
+
+-- PACIENTES
+INSERT INTO pacientes (
+    id_usuario, id_tipo_paciente, id_sucursal_frecuente, 
+    fecha_nacimiento, sexo, direccion_completa, ocupacion, nombre_tutor
+) VALUES 
+(3, 1, 1, '1994-05-20', 'Masculino', 'Calle Juárez 10, CDMX', 'Contador', NULL),
+(4, 3, 1, '1981-02-15', 'Femenino', 'Calle Norte 789, CDMX', 'Docente', NULL),
+(5, 2, 1, '2014-08-30', 'Masculino', 'Eje Central 100, CDMX', 'Estudiante', 'Roberto Martínez Ruiz');
+
+
+-- CAT ESPECIALIDADES Datos de prueba
+INSERT INTO cat_especialidades (nombre_especialidad) VALUES 
+('Odontología General'),
+('Ortodoncia'),
+('Endodoncia'),
+('Estética Dental'),
+('Odontopediatría');
+
+-- Datos de prueba Cat SERVICIOS
+INSERT INTO cat_servicios (id_especialidad, nombre_servicio, costo_base, duracion_estimada, requiere_fotos) VALUES 
+(1, 'Limpieza Dental', 500.00, '00:45:00', FALSE),
+(2, 'Ajuste de Brackets', 800.00, '00:30:00', TRUE),
+(3, 'Endodoncia Unirradicular', 2500.00, '01:30:00', TRUE),
+(4, 'Blanqueamiento Láser', 3500.00, '01:00:00', TRUE);
+
+
+-- Datos de prueba sucursal_especialidades (La sucursal 1 tiene todo, la 2 solo general y pediatría)
+INSERT INTO sucursal_especialidades (id_sucursal, id_especialidad) VALUES 
+(1, 1), (1, 2), (1, 3), (1, 4), (1, 5), -- Sucursal Centro tiene todas
+(2, 1), (2, 5);                         -- Sucursal Norte solo General y Niños
+
+
+-- Datos de prueba empleado_especialidades: El Dr. Faustino (Empleado 1) hace Estética y General
+INSERT INTO empleado_especialidades (id_empleado, id_especialidad) VALUES 
+(1, 1), 
+(1, 4);
+
+-- Inserción de valores iniciales basados en los flujos de los PDF
+INSERT INTO cat_medios_contacto (nombre_medio) VALUES 
+('Página Web'),
+('WhatsApp'),
+('Teléfono'),
+('Presencial');
+
+
+-- Datos del catálogo estado de la cita
+INSERT INTO cat_estados_cita (nombre_estado) VALUES 
+('Pendiente'), ('Confirmada'), ('Atendida'), ('Cancelada'), ('No asistió');
+
+
+-- Ejemplo para agendar una cita por Página Web
+INSERT INTO citas (
+    id_paciente, id_doctor, id_sucursal, id_servicio, id_medio_contacto, 
+    id_estado, fecha_cita, hora_cita, motivo_consulta
+) VALUES (
+    2, -- Ana Rodríguez
+    1, -- Dr. Faustino
+    1, -- Sucursal Centro
+    4, -- Blanqueamiento Láser
+    2, -- Página Web
+    2, -- Confirmada
+    '2026-04-15', 
+    '10:00:00', 
+    'Paciente desea blanqueamiento dental'
+);
+
+-- Ejemplo para Bloquear agenda por un día feriado
+INSERT INTO bloqueos_agenda (id_sucursal, fecha_bloqueo, motivo)
+VALUES (1, '2026-05-01', 'Día del Trabajo - Sucursal Cerrada');
+
+-- Ejemplo para la consulta clínica
+INSERT INTO consultas (
+    id_cita, id_paciente, id_doctor, reconocimiento_hallazgos, 
+    diagnostico, tratamiento_indicaciones, peso_kg, presion_arterial
+) VALUES (
+    1, -- Referencia a la cita de Ana
+    2, -- Ana Rodríguez
+    1, -- Dr. Faustino
+    'Se observa pigmentación grado II en piezas dentales superiores e inferiores.',
+    'Manchas extrínsecas por consumo de café.',
+    'Realizar blanqueamiento láser y recomendar pasta desensibilizante.',
+    65.5,
+    '115/75'
+);
+
+-- Ejemplo de la foto del "Antes" (Evidencia fotográfica)
+INSERT INTO consultas_fotos (id_consulta, url_foto, etiqueta_servicio, tipo_foto)
+VALUES (1, 'https://storage.com/fotos/ana_antes_blanqueamiento.jpg', 'Blanqueamiento Láser', 'Antes');
+
+-- Se rellena la cabecera de la receta vinculada a la consulta de Ana
+INSERT INTO recetas (
+    id_consulta, id_doctor, id_paciente, folio, 
+    peso_receta, presion_receta, pulso_receta, glucosa_receta,
+    indicaciones_generales
+) VALUES (
+    1, -- Consulta de Ana
+    1, -- Dr. Faustino
+    2, -- Ana Rodríguez
+    'NO-0953', -- Folio del documento original
+    65.5, '115/75', 72, 90,
+    'Evitar el consumo de bebidas (café, té) por las próximas 48 horas.'
+);
+
+-- Ejemplos para medicamentos de relacionados con la receta
+INSERT INTO receta_medicamentos (id_receta, nombre_medicamento, presentacion, dosis, duracion)
+VALUES 
+(1, 'Sensodyne Repair & Protect', 'Pasta dental', 'Uso diario tras cada comida', 'Indefinido'),
+(1, 'Ketorolaco', 'Tabletas 10mg', '1 cada 12 horas en caso de dolor', '3 días');
+
+--  Antecedentes clínicos
+INSERT INTO historial_clinico (id_paciente, id_categoria, descripcion_padecimiento) VALUES 
+(2, 4, 'Alérgica a la Penicilina'),
+(2, 1, 'Madre con hipertensión arterial'),
+(2, 2, 'Gastritis crónica');
+
+-- Consentimiento para el Blanqueamiento
+INSERT INTO consentimientos_paciente (id_paciente, id_servicio, id_cita, texto_legal_aceptado, firma_base64)
+VALUES (
+    2, 4, 1, 
+    'Acepto los riesgos de sensibilidad dental derivados del blanqueamiento láser...', 
+    'data:image/png;base64,iVBORw0KGgoAAAANS...' -- String de la firma simulada
+);
