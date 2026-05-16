@@ -41,6 +41,7 @@ class User(Base):
     fecha_creacion = Column(TIMESTAMP, server_default=func.now())
     fecha_actualizacion = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
     ultimo_acceso = Column(TIMESTAMP)
+    last_login = Column(TIMESTAMP)
 
     # Relationships
     nacionalidad = relationship("Nacionalidad")

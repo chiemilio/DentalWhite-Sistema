@@ -100,11 +100,18 @@ def create_prescription(
 
     folio = f"{prefix}-{next_number:05d}"
 
-    # Crear receta
+    # Crear receta con signos vitales
     db_prescription = Prescription(
         consulta_id=prescription_data.consulta_id,
         folio=folio,
-        indicaciones_generales=prescription_data.indicaciones_generales
+        indicaciones_generales=prescription_data.indicaciones_generales,
+        peso=prescription_data.peso,
+        talla=prescription_data.talla,
+        temperatura=prescription_data.temperatura,
+        presion_sistolica=prescription_data.presion_sistolica,
+        presion_diastolica=prescription_data.presion_diastolica,
+        pulso=prescription_data.pulso,
+        glucosa=prescription_data.glucosa
     )
 
     db.add(db_prescription)

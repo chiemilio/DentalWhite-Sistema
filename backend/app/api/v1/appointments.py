@@ -5,7 +5,10 @@ from typing import List, Optional
 from datetime import datetime, date
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import select
+from app.models.patient import Patient
+from app.models.employee import Employee
 
 from app.database import get_db
 from app.models.user import User
@@ -115,48 +118,66 @@ def list_appointments(
     usuario_id: int | None = Query(None, description="Filtrar por usuario ID"),
     empleado_id: int | None = Query(None, description="Filtrar por empleado"),
     estado_id: int | None = Query(None, description="Filtrar por estado"),
+    sucursal_id: int | None = Query(None, description="Filtrar por sucursal"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
     Lista todas las citas con filtros opcionales
     """
-    query = db.query(Appointment)
+    try:
+        # Cargar relaciones necesarias
+        query = db.query(Appointment).options(
+            joinedload(Appointment.paciente).joinedload(Patient.usuario),
+            joinedload(Appointment.empleado).joinedload(Employee.usuario),
+            joinedload(Appointment.servicio),
+            joinedload(Appointment.sucursal),
+            joinedload(Appointment.estado_cita)
+        )
 
-    # Aplicar filtros
-    if fecha_inicio:
-        query = query.filter(Appointment.fecha >= fecha_inicio.date())
-    if fecha_fin:
-        query = query.filter(Appointment.fecha <= fecha_fin.date())
-    
-    # Handle paciente_id - can be either patient table ID or user ID
-    if paciente_id:
-        from app.models.patient import Patient
-        # First try to find patient by usuario_id
-        patient = db.query(Patient).filter(
-            (Patient.usuario_id == paciente_id) | 
-            (Patient.id == paciente_id)
-        ).first()
-        if patient:
-            query = query.filter(Appointment.paciente_id == patient.id)
-        else:
-            # If no patient found, filter by paciente_id directly
-            query = query.filter(Appointment.paciente_id == paciente_id)
-    
-    # Handle usuario_id explicitly
-    if usuario_id:
-        from app.models.patient import Patient
-        patient = db.query(Patient).filter(Patient.usuario_id == usuario_id).first()
-        if patient:
-            query = query.filter(Appointment.paciente_id == patient.id)
-    
-    if empleado_id:
-        query = query.filter(Appointment.empleado_id == empleado_id)
-    if estado_id:
-        query = query.filter(Appointment.estado_cita_id == estado_id)
+        # Aplicar filtros
+        if fecha_inicio:
+            query = query.filter(Appointment.fecha >= fecha_inicio.date())
+        if fecha_fin:
+            query = query.filter(Appointment.fecha <= fecha_fin.date())
+        
+        # Handle paciente_id - can be either patient table ID or user ID
+        if paciente_id:
+            patient = db.query(Patient).filter(
+                (Patient.usuario_id == paciente_id) | 
+                (Patient.id == paciente_id)
+            ).first()
+            if patient:
+                query = query.filter(Appointment.paciente_id == patient.id)
+            else:
+                query = query.filter(Appointment.paciente_id == paciente_id)
+        
+        # Handle usuario_id - busca empleado y filtra por empleado_id
+        if usuario_id:
+            emp = db.query(Employee).filter(Employee.usuario_id == usuario_id).first()
+            if emp:
+                query = query.filter(Appointment.empleado_id == emp.id)
+            else:
+                query = query.filter(Appointment.empleado_id == 0)  # No results
+        
+        if empleado_id:
+            query = query.filter(Appointment.empleado_id == empleado_id)
+            print(f"DEBUG: Filtrando por empleado_id={empleado_id}")
+        if estado_id:
+            query = query.filter(Appointment.estado_cita_id == estado_id)
+        if sucursal_id:
+            query = query.filter(Appointment.sucursal_id == sucursal_id)
 
-    appointments = query.order_by(Appointment.fecha.desc(), Appointment.hora.desc()).offset(skip).limit(limit).all()
-    return [AppointmentResponse.from_orm_with_relations(appointment) for appointment in appointments]
+        appointments = query.order_by(Appointment.fecha.desc(), Appointment.hora.desc()).offset(skip).limit(limit).all()
+        print(f"Total citas: {len(appointments)} - Usuario: {current_user.email}")
+        for apt in appointments:
+            print(f"  Cita {apt.id}: fecha={apt.fecha}, hora={apt.hora}, estado={apt.estado_cita_id}")
+        return [AppointmentResponse.from_orm_with_relations(appointment) for appointment in appointments]
+    except Exception as e:
+        print(f"Error en list_appointments: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
 
 
 @router.get("", response_model=List[AppointmentResponse])
@@ -169,13 +190,14 @@ def list_appointments_no_slash(
     usuario_id: int | None = Query(None, description="Filtrar por usuario ID"),
     empleado_id: int | None = Query(None, description="Filtrar por empleado"),
     estado_id: int | None = Query(None, description="Filtrar por estado"),
+    sucursal_id: int | None = Query(None, description="Filtrar por sucursal"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
     Lista todas las citas con filtros opcionales (without trailing slash)
     """
-    return list_appointments(skip, limit, fecha_inicio, fecha_fin, paciente_id, usuario_id, empleado_id, estado_id, db, current_user)
+    return list_appointments(skip, limit, fecha_inicio, fecha_fin, paciente_id, usuario_id, empleado_id, estado_id, sucursal_id, db, current_user)
 
 
 @router.get("/{appointment_id}", response_model=AppointmentResponse)
@@ -219,6 +241,18 @@ def create_appointment(
             detail="El paciente no existe en el sistema"
         )
     
+    # Buscar empleado - puede ser employee.id o employee.usuario_id
+    empleado_db = db.query(Employee).filter(
+        (Employee.id == appointment_data.empleado_id) |
+        (Employee.usuario_id == appointment_data.empleado_id)
+    ).first()
+    if not empleado_db:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El empleado no existe en el sistema"
+        )
+    empleado_id_real = empleado_db.id
+    
     # Extraer fecha y hora del campo fecha_hora
     fecha_hora_dt = appointment_data.fecha_hora
     if isinstance(fecha_hora_dt, str):
@@ -229,7 +263,7 @@ def create_appointment(
 
     db_appointment = Appointment(
         paciente_id=paciente_db.id,  # Use the internal patient ID
-        empleado_id=appointment_data.empleado_id,
+        empleado_id=empleado_id_real,
         servicio_id=appointment_data.servicio_id,
         sucursal_id=appointment_data.sucursal_id,
         estado_cita_id=appointment_data.estado_cita_id,

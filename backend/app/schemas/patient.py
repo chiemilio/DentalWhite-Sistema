@@ -11,6 +11,9 @@ class PatientBase(BaseModel):
     tipo_paciente_id: Optional[int] = Field(None, description="ID del tipo de paciente")
     sucursal_id: Optional[int] = Field(None, description="ID de la sucursal")
     fecha_nacimiento: Optional[date] = None
+    sexo: Optional[str] = Field(None, description="Masculino, Femenino, No binario, No informar")
+    ocupacion: Optional[str] = Field(None, max_length=100)
+    firma_digitalizada: Optional[str] = Field(None, description="Firma digitalizada para consentimiento")
 
     # Dirección
     direccion: Optional[str] = Field(None, max_length=255)
@@ -30,7 +33,10 @@ class PatientBase(BaseModel):
 
 class PatientCreate(PatientBase):
     """Schema para crear Paciente"""
-    usuario_id: int = Field(..., description="ID del usuario asociado")
+    nombre: str = Field(..., description="Nombre del paciente")
+    apellido: str = Field(..., description="Apellido del paciente")
+    email: Optional[str] = Field(None, description="Email del usuario")
+    telefono: Optional[str] = Field(None, description="Teléfono del usuario")
 
 
 class PatientUpdate(BaseModel):
@@ -38,6 +44,9 @@ class PatientUpdate(BaseModel):
     tipo_paciente_id: Optional[int] = None
     sucursal_id: Optional[int] = None
     fecha_nacimiento: Optional[date] = None
+    sexo: Optional[str] = None
+    ocupacion: Optional[str] = None
+    firma_digitalizada: Optional[str] = None
     direccion: Optional[str] = None
     ciudad: Optional[str] = None
     estado: Optional[str] = None
@@ -76,6 +85,9 @@ class PatientResponse(PatientBase):
             sucursal_id=patient.sucursal_id,
             numero_expediente=patient.numero_expediente,
             fecha_nacimiento=patient.fecha_nacimiento,
+            sexo=patient.sexo,
+            ocupacion=patient.ocupacion,
+            firma_digitalizada=patient.firma_digitalizada,
             direccion=patient.direccion,
             ciudad=patient.ciudad,
             estado=patient.estado,

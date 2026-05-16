@@ -1,0 +1,35 @@
+# Dependencias
+node_modules
+pnpm-lock.yaml
+
+# Build
+dist
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+
+# Archivos de prueba
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+test_api.ps1
+
+# Docker
+docker-compose*.yml
+Dockerfile
+.dockerignore
+
+# Documentación
+*.md
+!README.md
+
+# Backend
+backend
+venv
+.venv

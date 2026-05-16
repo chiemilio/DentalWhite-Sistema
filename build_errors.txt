@@ -1,0 +1,15 @@
+
+> @figma/my-make-file@0.0.1 build
+> vite build
+
+vite v6.3.5 building for production...
+transforming...
+✓ 1264 modules transformed.
+✗ Build failed in 1.18s
+error during build:
+Could not resolve "../../../modules/auth/components/SimpleCaptcha" from "src/app/shared/components/LandingPage.tsx"
+file: /home/dragon3030/Sistema_Gestion_original/src/app/shared/components/LandingPage.tsx
+    at getRollupError (file:///home/dragon3030/Sistema_Gestion_original/node_modules/.pnpm/rollup@4.60.2/node_modules/rollup/dist/es/shared/parseAst.js:406:41)
+    at error (file:///home/dragon3030/Sistema_Gestion_original/node_modules/.pnpm/rollup@4.60.2/node_modules/rollup/dist/es/shared/parseAst.js:402:42)
+    at ModuleLoader.handleInvalidResolvedId (file:///home/dragon3030/Sistema_Gestion_original/node_modules/.pnpm/rollup@4.60.2/node_modules/rollup/dist/es/shared/node-entry.js:22120:24)
+    at file:///home/dragon3030/Sistema_Gestion_original/node_modules/.pnpm/rollup@4.60.2/node_modules/rollup/dist/es/shared/node-entry.js:22080:26

@@ -1,0 +1,1 @@
+SELECT id, email, rol_id, nombre, apellido_paterno FROM usuarios WHERE email = 'recepcion@dentalwhite.com';

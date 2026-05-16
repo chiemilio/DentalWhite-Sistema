@@ -1,10 +1,10 @@
 # Dockerfile para Dental White
 
-# Imagen base con Node.js
-FROM node:20-alpine AS base
+# Imagen base con Node.js v22
+FROM node:22-alpine AS base
 
-# Instalar pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# Instalar pnpm (versión compatible con Node 22)
+RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
 
 # Establecer directorio de trabajo
 WORKDIR /app

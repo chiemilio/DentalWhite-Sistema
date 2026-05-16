@@ -34,6 +34,15 @@ class PrescriptionBase(BaseModel):
     consulta_id: int = Field(..., description="ID de la consulta asociada")
     indicaciones_generales: Optional[str] = Field(None, description="Indicaciones generales")
 
+    # Signos vitales
+    peso: Optional[float] = Field(None, description="Peso en kg")
+    talla: Optional[float] = Field(None, description="Talla en cm")
+    temperatura: Optional[float] = Field(None, description="Temperatura en °C")
+    presion_sistolica: Optional[int] = Field(None, description="Presión sistólica")
+    presion_diastolica: Optional[int] = Field(None, description="Presión diastólica")
+    pulso: Optional[int] = Field(None, description="Pulso en ppm")
+    glucosa: Optional[float] = Field(None, description="Glucosa en mg/dL")
+
 
 class PrescriptionCreate(PrescriptionBase):
     """Schema para crear Receta"""

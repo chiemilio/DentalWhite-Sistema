@@ -1,7 +1,7 @@
 """
 Modelo de Empleado
 """
-from sqlalchemy import Column, Integer, String, Date, Boolean, TIMESTAMP, DECIMAL, ForeignKey, Table
+from sqlalchemy import Column, Integer, String, Date, Boolean, TIMESTAMP, DECIMAL, ForeignKey, Table, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database import Base
@@ -28,6 +28,11 @@ class Employee(Base):
     numero_empleado = Column(String(20), unique=True)
     cedula_profesional = Column(String(20), unique=True)
     fecha_contratacion = Column(Date)
+    
+    # Especialidad (del Final.sql)
+    especialidad_principal = Column(String(100))
+    biografia_resumen = Column(Text)
+    foto_perfil_url = Column(Text)
 
     # Información laboral
     puesto = Column(String(100))

@@ -1,7 +1,7 @@
 """
 Modelo de Paciente
 """
-from sqlalchemy import Column, Integer, String, Date, Boolean, TIMESTAMP, ForeignKey
+from sqlalchemy import Column, Integer, String, Date, Boolean, TIMESTAMP, ForeignKey, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database import Base
@@ -20,13 +20,18 @@ class Patient(Base):
     numero_expediente = Column(String(20), unique=True, nullable=False)
 
     # Información personal
-    fecha_nacimiento = Column(Date, nullable=False)
+    fecha_nacimiento = Column(Date, nullable=True)
+    sexo = Column(String(15))  # 'Masculino', 'Femenino', 'No binario', 'No informar'
+    ocupacion = Column(String(100))
 
     # Dirección
     direccion = Column(String(255))
     ciudad = Column(String(100))
     estado = Column(String(100))
     codigo_postal = Column(String(10))
+
+    # Firma digitalizada (Consentimiento)
+    firma_digitalizada = Column(Text)
 
     # Contacto de emergencia
     telefono_emergencia = Column(String(20))

@@ -1,9 +1,12 @@
 """
 Endpoints de Consultas
 """
+import logging
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from app.database import get_db
 from app.models.user import User
@@ -62,18 +65,35 @@ def create_consultation(
     """
     Crea una nueva consulta (Solo Doctor, Admin, SuperAdmin)
     """
+    logger.info(f"Creating consultation with data: {consultation_data.model_dump()}")
+    
     # Verificar que no exista ya una consulta para esta cita
     existing_consultation = db.query(Consultation).filter(
         Consultation.cita_id == consultation_data.cita_id
     ).first()
     if existing_consultation:
+        logger.warning(f"Consultation already exists for cita_id={consultation_data.cita_id}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Ya existe una consulta para esta cita"
         )
+    
+    # Obtener datos de la cita para llenar paciente_id y empleado_id
+    from app.models.appointment import Appointment
+    cita = db.query(Appointment).filter(Appointment.id == consultation_data.cita_id).first()
+    if not cita:
+        logger.error(f"Cita not found: {consultation_data.cita_id}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Cita no encontrada"
+        )
+
+    logger.info(f"Creating consultation for cita_id={consultation_data.cita_id}, paciente_id={cita.paciente_id}, empleado_id={cita.empleado_id}")
 
     db_consultation = Consultation(
         cita_id=consultation_data.cita_id,
+        paciente_id=cita.paciente_id,
+        empleado_id=cita.empleado_id,
         peso=consultation_data.peso,
         talla=consultation_data.talla,
         temperatura=consultation_data.temperatura,
@@ -81,17 +101,17 @@ def create_consultation(
         presion_diastolica=consultation_data.presion_diastolica,
         pulso=consultation_data.pulso,
         glucosa=consultation_data.glucosa,
-        motivo_consulta=consultation_data.motivo_consulta,
-        padecimiento_actual=consultation_data.padecimiento_actual,
-        exploracion_fisica=consultation_data.exploracion_fisica,
+        reconocimiento_hallazgos=consultation_data.reconocimiento_hallazgos,
         diagnostico=consultation_data.diagnostico,
-        plan_tratamiento=consultation_data.plan_tratamiento,
-        notas=consultation_data.notas
+        tratamiento_indicaciones=consultation_data.tratamiento_indicaciones,
+        notas_adicionales=consultation_data.notas_adicionales
     )
 
     db.add(db_consultation)
     db.commit()
     db.refresh(db_consultation)
+    
+    logger.info(f"Consultation created successfully with id={db_consultation.id}")
 
     return ConsultationResponse.from_orm_with_relations(db_consultation)
 

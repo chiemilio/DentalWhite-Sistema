@@ -1,8 +1,8 @@
 """
 Endpoints de Empleados
 """
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
@@ -19,25 +19,48 @@ router = APIRouter()
 def list_employees(
     skip: int = 0,
     limit: int = 100,
+    usuario_id: Optional[int] = Query(None, description="Filtrar por usuario_id"),
+    es_doctor: Optional[bool] = Query(None, description="Solo doctores"),
+    especialidad: Optional[str] = Query(None, description="Filtrar por especialidad"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
-    Lista todos los empleados
+    Lista todos los empleados, opcionalmente filtrados por usuario_id, solo doctores o especialidad
     """
     try:
-        employees = db.query(Employee).options(
+        query = db.query(Employee).options(
             joinedload(Employee.usuario).joinedload(User.rol),
             joinedload(Employee.especialidades),
             joinedload(Employee.sucursal)
-        ).offset(skip).limit(limit).all()
+        )
+        
+        if usuario_id:
+            query = query.filter(Employee.usuario_id == usuario_id)
+            print(f"DEBUG: Filtrando por usuario_id={usuario_id}")
+        
+        if es_doctor:
+            query = query.filter(Employee.puesto.ilike('%doctor%'))
+            print(f"DEBUG: Filtrando solo doctores")
+        
+        if especialidad:
+            from app.models.catalogos import Especialidad
+            emp_ids = db.query(Employee.id).join(
+                Employee.especialidades
+            ).filter(
+                Especialidad.nombre.ilike(f'%{especialidad}%')
+            ).all()
+            emp_ids = [e[0] for e in emp_ids]
+            if emp_ids:
+                query = query.filter(Employee.id.in_(emp_ids))
+            else:
+                query = query.filter(Employee.id == 0)
+            print(f"DEBUG: Filtrando por especialidad={especialidad}")
+        
+        employees = query.offset(skip).limit(limit).all()
         
         result = [EmployeeResponse.from_orm_with_relations(employee) for employee in employees]
         print(f"DEBUG: Returning {len(result)} employees")
-        if len(result) > 0:
-            # Print the dict of first employee to see what's being returned
-            print(f"DEBUG: First employee dict: {result[0].__dict__}")
-            print(f"DEBUG: First employee usuario_rol_nombre: {result[0].usuario_rol_nombre}")
         return result
     except Exception as e:
         import traceback

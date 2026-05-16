@@ -1,0 +1,1 @@
+SELECT id, nombre, color FROM cat_estados_cita ORDER BY id;

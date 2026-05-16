@@ -20,13 +20,11 @@ class ConsultationBase(BaseModel):
     pulso: Optional[int] = Field(None, ge=30, le=250, description="Pulso en ppm")
     glucosa: Optional[Decimal] = Field(None, ge=0, le=1000, description="Glucosa en mg/dL")
 
-    # Datos clínicos
-    motivo_consulta: str = Field(..., description="Motivo de la consulta")
-    padecimiento_actual: Optional[str] = Field(None, description="Descripción del padecimiento")
-    exploracion_fisica: Optional[str] = Field(None, description="Hallazgos de exploración física")
+    # Datos clínicos (mapeo a columnas de la tabla consultas)
+    reconocimiento_hallazgos: Optional[str] = Field(None, description="Reconocimiento/Hallazgos")
     diagnostico: Optional[str] = Field(None, description="Diagnóstico")
-    plan_tratamiento: Optional[str] = Field(None, description="Plan de tratamiento")
-    notas: Optional[str] = Field(None, description="Notas adicionales")
+    tratamiento_indicaciones: Optional[str] = Field(None, description="Tratamiento/Indicaciones")
+    notas_adicionales: Optional[str] = Field(None, description="Notas adicionales")
 
 
 class ConsultationCreate(ConsultationBase):
@@ -43,12 +41,10 @@ class ConsultationUpdate(BaseModel):
     presion_diastolica: Optional[int] = Field(None, ge=30, le=200)
     pulso: Optional[int] = Field(None, ge=30, le=250)
     glucosa: Optional[Decimal] = Field(None, ge=0, le=1000)
-    motivo_consulta: Optional[str] = None
-    padecimiento_actual: Optional[str] = None
-    exploracion_fisica: Optional[str] = None
+    reconocimiento_hallazgos: Optional[str] = None
     diagnostico: Optional[str] = None
-    plan_tratamiento: Optional[str] = None
-    notas: Optional[str] = None
+    tratamiento_indicaciones: Optional[str] = None
+    notas_adicionales: Optional[str] = None
 
 
 class ConsultationResponse(ConsultationBase):
@@ -78,15 +74,13 @@ class ConsultationResponse(ConsultationBase):
             presion_diastolica=consultation.presion_diastolica,
             pulso=consultation.pulso,
             glucosa=consultation.glucosa,
-            motivo_consulta=consultation.motivo_consulta,
-            padecimiento_actual=consultation.padecimiento_actual,
-            exploracion_fisica=consultation.exploracion_fisica,
+            reconocimiento_hallazgos=consultation.reconocimiento_hallazgos,
             diagnostico=consultation.diagnostico,
-            plan_tratamiento=consultation.plan_tratamiento,
-            notas=consultation.notas,
+            tratamiento_indicaciones=consultation.tratamiento_indicaciones,
+            notas_adicionales=consultation.notas_adicionales,
             fecha_creacion=consultation.fecha_creacion,
             fecha_actualizacion=consultation.fecha_actualizacion,
             paciente_nombre=f"{cita.paciente.usuario.nombre} {cita.paciente.usuario.apellido_paterno}" if cita and cita.paciente and cita.paciente.usuario else None,
             empleado_nombre=f"{cita.empleado.usuario.nombre} {cita.empleado.usuario.apellido_paterno}" if cita and cita.empleado and cita.empleado.usuario else None,
-            fecha_cita=cita.fecha_hora if cita else None
+            fecha_cita=str(cita.fecha) if cita and cita.fecha else None
         )

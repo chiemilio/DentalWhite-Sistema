@@ -116,6 +116,7 @@ class Horario(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     sucursal_id = Column(Integer, ForeignKey("cat_sucursales.id"))
+    hora = Column(String(5), nullable=False)
     hora_inicio = Column(Time, nullable=False, default="08:00:00")
     hora_fin = Column(Time, nullable=False, default="20:00:00")
     duracion_minutos = Column(Integer, nullable=False, default=30)

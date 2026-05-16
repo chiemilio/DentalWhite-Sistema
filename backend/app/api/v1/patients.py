@@ -10,6 +10,7 @@ from app.database import get_db
 from app.models.user import User
 from app.models.patient import Patient
 from app.schemas.patient import PatientCreate, PatientUpdate, PatientResponse
+from app.core.security import get_password_hash
 from app.api.deps import get_current_user, require_role
 
 router = APIRouter()
@@ -25,7 +26,7 @@ def list_patients_slash(
     """
     Lista todos los pacientes (trailing slash)
     """
-    patients = db.query(Patient).offset(skip).limit(limit).all()
+    patients = db.query(Patient).options(joinedload(Patient.usuario)).offset(skip).limit(limit).all()
     return [PatientResponse.from_orm_with_relations(patient) for patient in patients]
 
 
@@ -111,60 +112,55 @@ def create_patient(
     current_user: User = Depends(require_role("Admin", "SuperAdmin", "Recepcionista"))
 ):
     """
-    Crea un nuevo paciente
+    Crea un nuevo paciente y su usuario asociado
     """
-    # Verificar que el usuario exista
-    user = db.query(User).filter(User.id == patient_data.usuario_id).first()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Usuario no encontrado"
-        )
-
-    # Verificar que el usuario no tenga ya un perfil de paciente
-    existing_patient = db.query(Patient).filter(Patient.usuario_id == patient_data.usuario_id).first()
-    if existing_patient:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="El usuario ya tiene un perfil de paciente"
-        )
-
-    # Generar número de expediente (último + 1)
+    # Crear usuario
+    from app.models.user import User
+    import random
+    import string
+    
+    # Generar password temporal hasheado
+    temp_password = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
+    
+    # Generar email único si no se proporcionó o si ya existe
+    base_email = patient_data.email or f"paciente_{random.randint(1000, 9999)}@temporal.com"
+    email = base_email
+    counter = 1
+    while db.query(User).filter(User.email == email).first():
+        email = f"paciente_{random.randint(10000, 99999)}@temporal.com"
+    
+    db_user = User(
+        nombre=patient_data.nombre,
+        apellido_paterno=patient_data.apellido,
+        email=email,
+        telefono_principal=patient_data.telefono,
+        password_hash=get_password_hash(temp_password),
+        rol_id=4,  # Rol Paciente (id=4)
+        activo=True
+    )
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    
+    # Generar número de expediente
     last_patient = db.query(Patient).order_by(Patient.id.desc()).first()
     next_number = 1 if not last_patient else int(last_patient.numero_expediente.split("-")[1]) + 1
     numero_expediente = f"PAC-{next_number:06d}"
-
+    
     # Crear paciente
     db_patient = Patient(
-        usuario_id=patient_data.usuario_id,
+        usuario_id=db_user.id,
         tipo_paciente_id=patient_data.tipo_paciente_id,
-        sucursal_id=patient_data.sucursal_id,
+        sucursal_id=patient_data.sucursal_id or 2,  # Sucursal Principal por defecto
         numero_expediente=numero_expediente,
         fecha_nacimiento=patient_data.fecha_nacimiento,
-        genero=patient_data.genero,
-        tipo_sangre=patient_data.tipo_sangre,
-        calle=patient_data.calle,
-        numero_exterior=patient_data.numero_exterior,
-        numero_interior=patient_data.numero_interior,
-        colonia=patient_data.colonia,
-        ciudad=patient_data.ciudad,
-        estado=patient_data.estado,
-        codigo_postal=patient_data.codigo_postal,
-        nombre_emergencia=patient_data.nombre_emergencia,
-        telefono_emergencia=patient_data.telefono_emergencia,
-        relacion_emergencia=patient_data.relacion_emergencia,
-        requiere_tutor=patient_data.requiere_tutor,
-        nombre_tutor=patient_data.nombre_tutor,
-        telefono_tutor=patient_data.telefono_tutor,
-        parentesco_tutor=patient_data.parentesco_tutor,
-        medio_contacto_id=patient_data.medio_contacto_id,
-        notas=patient_data.notas
+        sexo=patient_data.sexo
     )
-
+    
     db.add(db_patient)
     db.commit()
     db.refresh(db_patient)
-
+    
     return PatientResponse.from_orm_with_relations(db_patient)
 
 
