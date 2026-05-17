@@ -55,9 +55,7 @@ export function MedicalPrescription({ patient, onBack, consultaId, signsVital }:
     glucose: signsVital?.glucosa || '',
     treatment: '',
   });
-  const [medicines, setMedicines] = useState<MedicineData[]>([
-    { id: '1', medicamento: 'Amoxicilina', presentacion: 'Cápsulas 500mg', dosis: '1 cápsula cada 8 horas', duracion: '7 días', indicaciones: 'Tomar con alimentos' }
-  ]);
+  const [medicines, setMedicines] = useState<MedicineData[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
   const addMedicine = () => {
@@ -67,7 +65,7 @@ export function MedicalPrescription({ patient, onBack, consultaId, signsVital }:
       presentacion: '', 
       dosis: '', 
       duracion: '', 
-      indicadores: '' 
+      indicaciones: '' 
     }]);
   };
 
@@ -124,7 +122,7 @@ let medicinesToSave = medicines
             presentacion: m.presentacion || undefined,
             dosis: m.dosis,
             duracion: m.duracion || '',
-            indicadores: m.indicaciones || undefined
+            indicaciones: m.indicaciones || undefined
           }));
         
         // Agregar tratamiento como medicamento si existe
@@ -232,17 +230,99 @@ let medicinesToSave = medicines
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label>TX (Tratamiento/Prescripción)</Label>
-            <Textarea
-              value={prescriptionData.treatment}
-              onChange={(e) =>
-                setPrescriptionData({ ...prescriptionData, treatment: e.target.value })
-              }
-              placeholder="Ingrese el tratamiento o medicamentos recetados..."
-              className="border-sky-200 min-h-[200px]"
-              rows={10}
-            />
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label className="text-base font-semibold">TX (Tratamiento/Prescripción)</Label>
+              <Button onClick={addMedicine} size="sm" className="bg-sky-500 hover:bg-sky-600">
+                <Plus className="mr-1" size={16} />
+                Agregar Medicamento
+              </Button>
+            </div>
+
+            {medicines.length === 0 && (
+              <p className="text-sm text-gray-500 text-center py-4">
+                No hay medicamentos agregados. Haz clic en "Agregar Medicamento" para comenzar.
+              </p>
+            )}
+
+            {medicines.map((medicine, index) => (
+              <div key={medicine.id} className="p-4 border border-sky-200 rounded-lg space-y-3 bg-sky-50/50">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-sky-700">Medicamento #{index + 1}</p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeMedicine(medicine.id)}
+                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <X size={16} />
+                  </Button>
+                </div>
+                <div className="grid md:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Medicamento *</Label>
+                    <Input
+                      value={medicine.medicamento}
+                      onChange={(e) => updateMedicine(medicine.id, 'medicamento', e.target.value)}
+                      placeholder="Ej: Amoxicilina"
+                      className="border-sky-200"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Presentación</Label>
+                    <Input
+                      value={medicine.presentacion}
+                      onChange={(e) => updateMedicine(medicine.id, 'presentacion', e.target.value)}
+                      placeholder="Ej: Cápsulas 500mg"
+                      className="border-sky-200"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Dosis *</Label>
+                    <Input
+                      value={medicine.dosis}
+                      onChange={(e) => updateMedicine(medicine.id, 'dosis', e.target.value)}
+                      placeholder="Ej: 1 cápsula cada 8 horas"
+                      className="border-sky-200"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Duración</Label>
+                    <Input
+                      value={medicine.duracion}
+                      onChange={(e) => updateMedicine(medicine.id, 'duracion', e.target.value)}
+                      placeholder="Ej: 7 días"
+                      className="border-sky-200"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Indicaciones</Label>
+                  <Textarea
+                    value={medicine.indicaciones}
+                    onChange={(e) => updateMedicine(medicine.id, 'indicaciones', e.target.value)}
+                    placeholder="Ej: Tomar con alimentos"
+                    className="border-sky-200"
+                    rows={2}
+                  />
+                </div>
+              </div>
+            ))}
+
+            {medicines.length > 0 && (
+              <div className="space-y-2">
+                <Label>Notas adicionales del tratamiento</Label>
+                <Textarea
+                  value={prescriptionData.treatment}
+                  onChange={(e) =>
+                    setPrescriptionData({ ...prescriptionData, treatment: e.target.value })
+                  }
+                  placeholder="Indicaciones generales adicionales..."
+                  className="border-sky-200"
+                  rows={3}
+                />
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -346,8 +426,27 @@ let medicinesToSave = medicines
             </div>
 
             {/* Contenido del tratamiento */}
-            <div className="relative z-10 whitespace-pre-wrap text-sm min-h-[300px] text-gray-700">
-              {prescriptionData.treatment || '(El tratamiento aparecerá aquí)'}
+            <div className="relative z-10 text-sm min-h-[300px] text-gray-700">
+              {medicines.length > 0 ? (
+                <div className="space-y-4">
+                  {medicines.filter(m => m.medicamento).map((medicine, index) => (
+                    <div key={medicine.id} className="pb-3 border-b border-gray-200">
+                      <p className="font-semibold">{index + 1}. {medicine.medicamento} {medicine.presentacion && `- ${medicine.presentacion}`}</p>
+                      {medicine.dosis && <p className="ml-4">Dosis: {medicine.dosis}</p>}
+                      {medicine.duracion && <p className="ml-4">Duración: {medicine.duracion}</p>}
+                      {medicine.indicaciones && <p className="ml-4">Indicaciones: {medicine.indicaciones}</p>}
+                    </div>
+                  ))}
+                  {prescriptionData.treatment && (
+                    <div className="pt-2">
+                      <p className="font-semibold">Notas adicionales:</p>
+                      <p className="ml-4 whitespace-pre-wrap">{prescriptionData.treatment}</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-gray-400">(El tratamiento aparecerá aquí)</p>
+              )}
             </div>
 
             {/* Línea de firma */}
@@ -469,8 +568,27 @@ let medicinesToSave = medicines
           </div>
 
           {/* Contenido del tratamiento */}
-          <div className="relative z-10 whitespace-pre-wrap text-sm min-h-[300px]">
-            {prescriptionData.treatment}
+          <div className="relative z-10 text-sm min-h-[300px]">
+            {medicines.length > 0 ? (
+              <div className="space-y-4">
+                {medicines.filter(m => m.medicamento).map((medicine, index) => (
+                  <div key={medicine.id} className="pb-3 border-b border-gray-200">
+                    <p className="font-semibold">{index + 1}. {medicine.medicamento} {medicine.presentacion && `- ${medicine.presentacion}`}</p>
+                    {medicine.dosis && <p className="ml-4">Dosis: {medicine.dosis}</p>}
+                    {medicine.duracion && <p className="ml-4">Duración: {medicine.duracion}</p>}
+                    {medicine.indicaciones && <p className="ml-4">Indicaciones: {medicine.indicaciones}</p>}
+                  </div>
+                ))}
+                {prescriptionData.treatment && (
+                  <div className="pt-2">
+                    <p className="font-semibold">Notas adicionales:</p>
+                    <p className="ml-4 whitespace-pre-wrap">{prescriptionData.treatment}</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-gray-400">{prescriptionData.treatment || '(Sin tratamiento)'}</p>
+            )}
           </div>
 
           {/* Línea de firma */}
