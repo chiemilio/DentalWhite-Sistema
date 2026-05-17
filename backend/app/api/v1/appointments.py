@@ -2,7 +2,7 @@
 Endpoints de Citas
 """
 from typing import List, Optional
-from datetime import datetime, date
+from datetime import datetime, date, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session, joinedload
@@ -86,8 +86,16 @@ def register_and_appointment(
         db.flush()
         paciente_db = db_patient
     
-    # Create appointment
-    fecha_hora_dt = datetime.fromisoformat(data.fecha_hora.replace("Z", "+00:00"))
+    # Create appointment - parse fecha_hora as local time (no timezone conversion)
+    fecha_hora_str = data.fecha_hora.replace("Z", "+00:00")
+    if "+" not in fecha_hora_str and fecha_hora_str[-1] != "Z":
+        # No timezone info, treat as local time
+        fecha_hora_dt = datetime.fromisoformat(data.fecha_hora)
+    else:
+        # Has timezone info, convert to local (America/Mexico_City, UTC-6)
+        fecha_hora_dt = datetime.fromisoformat(fecha_hora_str)
+        mexico_tz = timezone(timedelta(hours=-6))
+        fecha_hora_dt = fecha_hora_dt.astimezone(mexico_tz)
     
     nueva_cita = Appointment(
         paciente_id=paciente_db.id,
@@ -253,10 +261,18 @@ def create_appointment(
         )
     empleado_id_real = empleado_db.id
     
-    # Extraer fecha y hora del campo fecha_hora
+    # Extraer fecha y hora del campo fecha_hora - parse as local time
     fecha_hora_dt = appointment_data.fecha_hora
     if isinstance(fecha_hora_dt, str):
-        fecha_hora_dt = datetime.fromisoformat(fecha_hora_dt.replace('Z', '+00:00'))
+        fecha_hora_str = fecha_hora_dt.replace('Z', '+00:00')
+        if '+' not in fecha_hora_str and fecha_hora_str[-1] != 'Z':
+            # No timezone info, treat as local time
+            fecha_hora_dt = datetime.fromisoformat(fecha_hora_dt)
+        else:
+            # Has timezone info, convert to local (America/Mexico_City, UTC-6)
+            fecha_hora_dt = datetime.fromisoformat(fecha_hora_str)
+            mexico_tz = timezone(timedelta(hours=-6))
+            fecha_hora_dt = fecha_hora_dt.astimezone(mexico_tz)
     
     fecha_cita = fecha_hora_dt.date() if hasattr(fecha_hora_dt, 'date') else fecha_hora_dt.date()
     hora_cita = fecha_hora_dt.time() if hasattr(fecha_hora_dt, 'time') else fecha_hora_dt.time()
@@ -301,7 +317,20 @@ def update_appointment(
     # Actualizar campos proporcionados
     update_data = appointment_update.model_dump(exclude_unset=True)
     for field, value in update_data.items():
-        setattr(appointment, field, value)
+        if field == 'fecha_hora' and value is not None:
+            # Parse fecha_hora as local time
+            if isinstance(value, str):
+                fecha_hora_str = value.replace('Z', '+00:00')
+                if '+' not in fecha_hora_str and fecha_hora_str[-1] != 'Z':
+                    value = datetime.fromisoformat(value)
+                else:
+                    value = datetime.fromisoformat(fecha_hora_str)
+                    mexico_tz = timezone(timedelta(hours=-6))
+                    value = value.astimezone(mexico_tz)
+            appointment.fecha = value.date()
+            appointment.hora = value.time()
+        else:
+            setattr(appointment, field, value)
     
     db.commit()
     db.refresh(appointment)

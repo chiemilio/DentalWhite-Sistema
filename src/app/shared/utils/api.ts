@@ -129,8 +129,8 @@ export interface BackendAppointment {
    servicio_id: number;
    sucursal_id: number;
    estado_cita_id: number;
-   fecha: string;
-   fecha_hora: string;
+   fecha?: string;
+   fecha_hora?: string;
    duracion_minutos: number;
    motivo?: string;
    notas?: string;

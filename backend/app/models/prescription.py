@@ -20,13 +20,13 @@ class Prescription(Base):
     folio = Column(String(50), unique=True, nullable=False, index=True)
 
     # Signos vitales (copiados de la consulta para histórico)
-    peso = Column(DECIMAL(5, 2))
-    talla = Column(DECIMAL(5, 2))
-    temperatura = Column(DECIMAL(4, 2))
+    peso = Column(DECIMAL(10, 2))
+    talla = Column(DECIMAL(10, 2))
+    temperatura = Column(DECIMAL(10, 2))
     presion_sistolica = Column(Integer)
     presion_diastolica = Column(Integer)
     pulso = Column(Integer)
-    glucosa = Column(DECIMAL(5, 2))
+    glucosa = Column(DECIMAL(10, 2))
 
     # Indicaciones generales
     indicaciones_generales = Column(Text)

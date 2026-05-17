@@ -8,11 +8,10 @@ from pydantic import BaseModel, Field, ConfigDict
 
 class PrescriptionMedicineBase(BaseModel):
     """Schema base de Medicamento en Receta"""
-    medicamento: str = Field(..., max_length=200, description="Nombre del medicamento")
+    medicamento: Optional[str] = Field(None, max_length=200, description="Nombre del medicamento")
     presentacion: Optional[str] = Field(None, max_length=100, description="Presentación del medicamento")
-    dosis: str = Field(..., max_length=200, description="Dosis prescrita")
-    frecuencia: str = Field(..., max_length=200, description="Frecuencia de administración")
-    duracion: str = Field(..., max_length=100, description="Duración del tratamiento")
+    dosis: Optional[str] = Field(None, max_length=200, description="Dosis prescrita")
+    duracion: Optional[str] = Field(None, max_length=100, description="Duración del tratamiento")
     indicaciones: Optional[str] = Field(None, description="Indicaciones especiales")
 
 
@@ -46,7 +45,7 @@ class PrescriptionBase(BaseModel):
 
 class PrescriptionCreate(PrescriptionBase):
     """Schema para crear Receta"""
-    medicamentos: List[PrescriptionMedicineCreate] = Field(..., min_length=1, description="Lista de medicamentos")
+    medicamentos: List[PrescriptionMedicineCreate] = Field(default_factory=list, description="Lista de medicamentos")
 
 
 class PrescriptionResponse(PrescriptionBase):
@@ -76,7 +75,14 @@ class PrescriptionResponse(PrescriptionBase):
             consulta_id=prescription.consulta_id,
             folio=prescription.folio,
             indicaciones_generales=prescription.indicaciones_generales,
-            fecha_emision=prescription.fecha_emision,
+            fecha_emision=prescription.fecha_creacion,
+            peso=prescription.peso,
+            talla=prescription.talla,
+            temperatura=prescription.temperatura,
+            presion_sistolica=prescription.presion_sistolica,
+            presion_diastolica=prescription.presion_diastolica,
+            pulso=prescription.pulso,
+            glucosa=prescription.glucosa,
             medicamentos=[
                 PrescriptionMedicineResponse.model_validate(med)
                 for med in prescription.medicamentos

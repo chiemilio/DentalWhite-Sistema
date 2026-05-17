@@ -100,9 +100,57 @@ def create_prescription(
 
     folio = f"{prefix}-{next_number:05d}"
 
+    # Obtener paciente_id y empleado_id de la consulta
+    from app.models.consultation import Consultation
+    consulta = db.query(Consultation).filter(Consultation.id == prescription_data.consulta_id).first()
+    if not consulta:
+        raise HTTPException(status_code=404, detail="Consulta no encontrada")
+    
+    # Debug: verificar que la consulta tiene los datos
+    if not consulta.paciente_id or not consulta.empleado_id:
+        raise HTTPException(status_code=400, detail=f"Consulta sin paciente o empleado: paciente={consulta.paciente_id}, empleado={consulta.empleado_id}")
+    
+    # Verificar si ya existe una receta para esta consulta
+    existing_prescription = db.query(Prescription).filter(
+        Prescription.consulta_id == prescription_data.consulta_id
+    ).first()
+    
+    if existing_prescription:
+        # Actualizar receta existente
+        existing_prescription.indicaciones_generales = prescription_data.indicaciones_generales
+        existing_prescription.peso = prescription_data.peso
+        existing_prescription.talla = prescription_data.talla
+        existing_prescription.temperatura = prescription_data.temperatura
+        existing_prescription.presion_sistolica = prescription_data.presion_sistolica
+        existing_prescription.presion_diastolica = prescription_data.presion_diastolica
+        existing_prescription.pulso = prescription_data.pulso
+        existing_prescription.glucosa = prescription_data.glucosa
+        
+        # Eliminar medicamentos anteriores y crear nuevos
+        db.query(PrescriptionMedicine).filter(
+            PrescriptionMedicine.receta_id == existing_prescription.id
+        ).delete()
+        
+        for med_data in prescription_data.medicamentos:
+            db_medicine = PrescriptionMedicine(
+                receta_id=existing_prescription.id,
+                medicamento=med_data.medicamento,
+                presentacion=med_data.presentacion,
+                dosis=med_data.dosis,
+                duracion=med_data.duracion,
+                indicaciones=med_data.indicaciones
+            )
+            db.add(db_medicine)
+        
+        db.commit()
+        db.refresh(existing_prescription)
+        return PrescriptionResponse.from_orm_with_relations(existing_prescription)
+    
     # Crear receta con signos vitales
     db_prescription = Prescription(
         consulta_id=prescription_data.consulta_id,
+        paciente_id=consulta.paciente_id,
+        empleado_id=consulta.empleado_id,
         folio=folio,
         indicaciones_generales=prescription_data.indicaciones_generales,
         peso=prescription_data.peso,
@@ -124,7 +172,6 @@ def create_prescription(
             medicamento=med_data.medicamento,
             presentacion=med_data.presentacion,
             dosis=med_data.dosis,
-            frecuencia=med_data.frecuencia,
             duracion=med_data.duracion,
             indicaciones=med_data.indicaciones
         )

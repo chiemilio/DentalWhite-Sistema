@@ -39,9 +39,17 @@ export function PatientDashboard() {
 
   // Map backend appointment to frontend format
   const mapAppointment = (backendAppt: BackendAppointment): Appointment => {
-    const fechaHora = new Date(backendAppt.fecha_hora);
-    const date = fechaHora.toISOString().split('T')[0];
-    const time = fechaHora.toTimeString().split(' ')[0].substring(0, 5);
+    // Usar fecha directa del backend o extraer de fecha_hora
+    let date = backendAppt.fecha;
+    let time = '';
+    
+    if (backendAppt.fecha_hora) {
+      const fechaHora = new Date(backendAppt.fecha_hora);
+      if (!date) {
+        date = fechaHora.toISOString().split('T')[0];
+      }
+      time = fechaHora.toTimeString().split(' ')[0].substring(0, 5);
+    }
     
     // Map status
     const statusMap: Record<string, Appointment['status']> = {
@@ -127,9 +135,17 @@ export function PatientDashboard() {
 
   const fetchHorariosOcupados = async (date: string, sucursalId: number) => {
     try {
-      const response = await apiClient.get<Array<{ id: number; hora: string }>>(
+      // First try with specific sucursal
+      let response = await apiClient.get<Array<{ id: number; hora: string }>>(
         `/catalogos/horarios?sucursal_id=${sucursalId}`
       );
+      
+      // If no horarios for this sucursal, get all active horarios
+      if (!response || response.length === 0) {
+        response = await apiClient.get<Array<{ id: number; hora: string }>>(
+          '/catalogos/horarios'
+        );
+      }
       
       if (!response || response.length === 0) {
         setHorariosOcupados(new Set());
@@ -273,9 +289,6 @@ export function PatientDashboard() {
     }
 
     try {
-      // Combine date and time into ISO string
-      const fechaHora = new Date(`${newAppointment.date}T${newAppointment.time}:00`);
-      
       // Get employee to find associated doctor (using doctor employee ID 1)
       const empleadoId = 1; // Default doctor - Employee ID 1
       
@@ -287,7 +300,7 @@ export function PatientDashboard() {
         servicio_id: parseInt(newAppointment.serviceId),
         sucursal_id: parseInt(newAppointment.workCenterId),
         estado_cita_id: estadoCitaId,
-        fecha_hora: fechaHora.toISOString(),
+        fecha_hora: `${newAppointment.date}T${newAppointment.time}:00`,
         duracion_minutos: 30,
       });
 
@@ -310,11 +323,15 @@ export function PatientDashboard() {
 
   const handleCancelAppointment = async (id: string) => {
     try {
-      // Call backend to delete/cancel appointment
-      await apiClient.delete(`/appointments/${id}`);
+      // Cambiar estado a cancelada (3) en lugar de eliminar
+      await apiClient.put(`/appointments/${id}`, { estado_cita_id: 3 }, true);
       
-      // Remove from local state
-      setAppointments(appointments.filter((apt) => apt.id !== id));
+      // Actualizar estado en local
+      setAppointments(
+        appointments.map((apt) =>
+          apt.id === id ? { ...apt, status: 'cancelled' as const } : apt
+        )
+      );
       toast.success('Cita cancelada');
     } catch (error) {
       console.error('Error canceling appointment:', error);

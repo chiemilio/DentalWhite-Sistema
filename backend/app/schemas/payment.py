@@ -23,6 +23,7 @@ class PaymentCreate(PaymentBase):
 
 class PaymentUpdate(BaseModel):
     """Schema para actualizar Pago"""
+    monto_total: Optional[float] = None
     monto_pagado: Optional[float] = None
     metodo_pago: Optional[str] = None
     notas: Optional[str] = None

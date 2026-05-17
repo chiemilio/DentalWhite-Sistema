@@ -31,7 +31,6 @@ interface MedicineData {
   medicamento: string;
   presentacion: string;
   dosis: string;
-  frecuencia: string;
   duracion: string;
   indicaciones: string;
 }
@@ -57,7 +56,7 @@ export function MedicalPrescription({ patient, onBack, consultaId, signsVital }:
     treatment: '',
   });
   const [medicines, setMedicines] = useState<MedicineData[]>([
-    { id: '1', medicamento: '', presentacion: '', dosis: '', frecuencia: '', duracion: '', indicaciones: '' }
+    { id: '1', medicamento: 'Amoxicilina', presentacion: 'Cápsulas 500mg', dosis: '1 cápsula cada 8 horas', duracion: '7 días', indicaciones: 'Tomar con alimentos' }
   ]);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -67,7 +66,6 @@ export function MedicalPrescription({ patient, onBack, consultaId, signsVital }:
       medicamento: '', 
       presentacion: '', 
       dosis: '', 
-      frecuencia: '', 
       duracion: '', 
       indicadores: '' 
     }]);
@@ -97,27 +95,59 @@ export function MedicalPrescription({ patient, onBack, consultaId, signsVital }:
           presionDiastolica = parseInt(bpParts[1]) || undefined;
         }
 
-        const medicinesToSave = medicines
+        // Parsear glucosa - extraer solo números
+        let glucosaValue: number | null = null;
+        if (prescriptionData.glucose) {
+          const glucoseNum = parseFloat(prescriptionData.glucose.replace(/[^0-9.]/g, ''));
+          if (!isNaN(glucoseNum) && glucoseNum > 0 && glucoseNum <= 999.99) {
+            glucosaValue = glucoseNum;
+          } else if (!isNaN(glucoseNum) && glucoseNum > 999.99) {
+            toast.error('El valor de glucosa debe ser menor a 1000 mg/dL');
+            setIsSaving(false);
+            return;
+          }
+        }
+
+        // Validar peso
+        let pesoValue: number | null = null;
+        if (prescriptionData.weight) {
+          const pesoNum = parseFloat(prescriptionData.weight.replace(/[^0-9.]/g, ''));
+          if (!isNaN(pesoNum) && pesoNum > 0 && pesoNum <= 999.99) {
+            pesoValue = pesoNum;
+          }
+        }
+
+let medicinesToSave = medicines
           .filter(m => m.medicamento && m.dosis)
           .map(m => ({
             medicamento: m.medicamento,
             presentacion: m.presentacion || undefined,
             dosis: m.dosis,
-            frecuencia: m.frecuencia || '',
             duracion: m.duracion || '',
-            indicaciones: m.indicaciones || undefined
+            indicadores: m.indicaciones || undefined
           }));
+        
+        // Agregar tratamiento como medicamento si existe
+        if (prescriptionData.treatment && prescriptionData.treatment.trim()) {
+          medicinesToSave.push({
+            medicamento: prescriptionData.treatment,
+            presentacion: undefined,
+            dosis: '',
+            duracion: '',
+            indicadores: undefined
+          });
+        }
 
         await apiClient.post('/prescriptions/', {
           consulta_id: consultaId,
           indicaciones_generales: prescriptionData.treatment,
-          peso: prescriptionData.weight ? parseFloat(prescriptionData.weight) : null,
+          peso: pesoValue,
           talla: signsVital?.talla ? parseFloat(signsVital.talla) : null,
           temperatura: signsVital?.temperatura ? parseFloat(signsVital.temperatura) : null,
           presion_sistolica: presionSistolica,
           presion_diastolica: presionDiastolica,
           pulso: prescriptionData.pulse ? parseInt(prescriptionData.pulse) : null,
-          glucosa: prescriptionData.glucose ? parseFloat(prescriptionData.glucose) : null,
+          glucosa: glucosaValue,
           medicamentos: medicinesToSave
         }, true);
         

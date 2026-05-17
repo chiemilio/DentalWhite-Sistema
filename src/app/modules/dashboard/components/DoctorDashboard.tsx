@@ -106,10 +106,10 @@ const loadData = async () => {
     loadData();
   }, [user?.id, user?.role]);
 
-// Obtener fechas únicas con citas confirmadas
+// Obtener fechas únicas con citas activas (programadas, confirmadas, pagadas)
   const confirmedDates = [...new Set(
     appointments
-      .filter(a => a.estado_cita_id === 2)
+      .filter(a => [1, 2, 5, 6].includes(a.estado_cita_id))
       .map(a => {
         if (a.fecha) return a.fecha;
         if (a.fecha_hora) {
@@ -121,10 +121,9 @@ const loadData = async () => {
       .filter(Boolean)
   )].sort();
 
-  // Filtrar citas: solo confirmadas (estado=2) y fecha seleccionada
+  // Filtrar citas: activas (1=Programada, 2=Confirmada, 5=Pagado Parcial, 6=Pagado Completo) y fecha seleccionada
   const filteredAppointments = appointments.filter(apt => {
-    // Solo citas confirmadas (estado=2)
-    if (apt.estado_cita_id !== 2) return false;
+    if (![1, 2, 5, 6].includes(apt.estado_cita_id)) return false;
     
     // Extraer fecha de múltiples fuentes posibles
     let aptDate = null;
@@ -277,7 +276,7 @@ const loadData = async () => {
       }, true);
       toast.success('Cita cancelada');
       // Recargar citas
-      const data = await apiClient.get<BackendAppointment[]>(`/appointments/?empleado_id=${empleadoId}&estado_id=2`, true);
+      const data = await apiClient.get<BackendAppointment[]>(`/appointments/?empleado_id=${empleadoId}`, true);
       setAppointments(Array.isArray(data) ? data : []);
     } catch (error: any) {
       toast.error(error?.response?.data?.detail || 'Error al cancelar cita');
@@ -297,7 +296,7 @@ const loadData = async () => {
       toast.success('Cita reprogramada');
       setIsRescheduleDialogOpen(false);
       // Recargar citas
-      const data = await apiClient.get<BackendAppointment[]>(`/appointments/?empleado_id=${empleadoId}&estado_id=2`, true);
+      const data = await apiClient.get<BackendAppointment[]>(`/appointments/?empleado_id=${empleadoId}`, true);
       setAppointments(Array.isArray(data) ? data : []);
     } catch (error: any) {
       toast.error(error?.response?.data?.detail || 'Error al reprogramar');
@@ -308,7 +307,7 @@ const loadData = async () => {
     setAttendingAppointment(null);
     // Recargar citas después de atender
     try {
-      const data = await apiClient.get<BackendAppointment[]>(`/appointments/?empleado_id=${empleadoId}&estado_id=2`, true);
+      const data = await apiClient.get<BackendAppointment[]>(`/appointments/?empleado_id=${empleadoId}`, true);
       setAppointments(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error reloading appointments:', error);

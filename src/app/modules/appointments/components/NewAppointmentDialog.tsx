@@ -212,7 +212,6 @@ export function NewAppointmentDialog({ onAppointmentCreated, existingAppointment
       patientId = selectedPatient.id;
     } else {
       // Paciente nuevo - usar endpoint simplificado
-      const fechaHora = new Date(`${newAppointment.date}T${newAppointment.time}`);
       
       const newPatientDataCombined = {
         email: newPatientData.email,
@@ -223,7 +222,7 @@ export function NewAppointmentDialog({ onAppointmentCreated, existingAppointment
         empleado_id: parseInt(selectedEmployeeId),
         servicio_id: parseInt(newAppointment.serviceId),
         sucursal_id: parseInt(newAppointment.workCenterId),
-        fecha_hora: fechaHora.toISOString(),
+        fecha_hora: `${newAppointment.date}T${newAppointment.time}:00`,
         duracion_minutos: 30,
         motivo_consulta: newAppointment.motivo || '',
       };
@@ -259,15 +258,13 @@ export function NewAppointmentDialog({ onAppointmentCreated, existingAppointment
     
     // Crear la cita
     try {
-      const fechaHora = new Date(`${newAppointment.date}T${newAppointment.time}`);
-      
       const appointmentData = {
         paciente_id: patientId,
         empleado_id: parseInt(selectedEmployeeId),
         servicio_id: parseInt(newAppointment.serviceId),
         sucursal_id: parseInt(newAppointment.workCenterId),
         estado_cita_id: 1,
-        fecha_hora: fechaHora.toISOString(),
+        fecha_hora: `${newAppointment.date}T${newAppointment.time}:00`,
         duracion_minutos: 30,
       };
 

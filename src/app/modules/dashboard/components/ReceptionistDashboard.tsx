@@ -272,16 +272,15 @@ export function ReceptionistDashboard() {
 
         // Verificar si existe payment para esta cita
         let paymentId: number | null = null;
-        try {
-          const existingPayment = await apiClient.get<any>(`/payments/cita/${citaId}`, true);
+        const existingPayment = await apiClient.get<any>(`/payments/cita/${citaId}`, true);
+        if (existingPayment) {
           paymentId = existingPayment.id;
-        } catch (e) {
-          // No existe, se creará nuevo
         }
 
         if (paymentId) {
           // Actualizar payment existente
           await apiClient.put<any>(`/payments/${paymentId}`, {
+            monto_total: paymentData.servicePrice,
             monto_pagado: montoAPagar,
             metodo_pago: paymentData.paymentType === 'complete' ? 'EFECTIVO' : 'PARCIAL'
           }, true);
@@ -503,6 +502,17 @@ export function ReceptionistDashboard() {
                             )}
                             {appointment.status === 'completed' && (
                               <CheckCircle className="text-green-500" size={16} />
+                            )}
+                            {appointment.status === 'paid_partial' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleOpenPaymentDialog(appointment)}
+                                className="border-green-300 text-green-600 hover:bg-green-50"
+                                title="Completar Pago"
+                              >
+                                <DollarSign size={16} />
+                              </Button>
                             )}
                             {appointment.status === 'cancelled' && (
                               <XCircle className="text-gray-400" size={16} />

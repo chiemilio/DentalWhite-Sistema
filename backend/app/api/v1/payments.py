@@ -1,7 +1,7 @@
 """
 Endpoints de Pagos
 """
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from datetime import datetime, date
@@ -68,6 +68,23 @@ def create_payment(
     )
     
     db.add(payment)
+    db.flush()  # Para obtener el ID del pago
+    
+    # Crear registro en pagos_parciales si hay abono inicial
+    if payment_data.monto_pagado > 0:
+        from datetime import datetime
+        timestamp = int(datetime.now().timestamp())
+        numero_abono = f"ABONO-{timestamp}"
+        
+        abono = PaymentPartial(
+            pago_id=payment.id,
+            monto=payment_data.monto_pagado,
+            metodo_pago=payment_data.metodo_pago or "EFECTIVO",
+            numero_recibo=numero_abono,
+            fecha_pago=date.today()
+        )
+        db.add(abono)
+    
     db.commit()
     db.refresh(payment)
     
@@ -101,14 +118,19 @@ def update_payment(
     if not payment:
         raise HTTPException(status_code=404, detail="Pago no encontrado")
     
+    # Actualizar monto_total si cambia
+    if payment_data.monto_total is not None:
+        payment.monto_total = payment_data.monto_total
+    
     # Actualizar campos
     if payment_data.monto_pagado is not None:
         monto_anterior = float(payment.monto_pagado)
         monto_nuevo = float(payment_data.monto_pagado)
-        diferencia = monto_nuevo - monto_anterior
         
-        # Crear registro en pagos_parciales SI HAY ABONO NUEVO
-        if diferencia > 0:
+        # Si el monto nuevo es mayor, es un abono adicional
+        # Si es menor o igual, es un ajuste (completar pago)
+        if monto_nuevo > monto_anterior:
+            diferencia = monto_nuevo - monto_anterior
             from datetime import datetime
             timestamp = int(datetime.now().timestamp())
             numero_recibo = f"ABONO-{timestamp}"
@@ -152,16 +174,16 @@ def update_payment(
     return PaymentResponse.from_orm_with_relations(payment)
 
 
-@router.get("/cita/{cita_id}", response_model=PaymentResponse)
-@router.get("/cita/{cita_id}/", response_model=PaymentResponse)
+@router.get("/cita/{cita_id}", response_model=Optional[PaymentResponse])
+@router.get("/cita/{cita_id}/", response_model=Optional[PaymentResponse])
 def get_payment_by_cita(
     cita_id: int,
     db: Session = Depends(get_db)
 ):
-    """Obtener pago de una cita"""
+    """Obtener pago de una cita (retorna null si no existe)"""
     payment = db.query(Payment).filter(Payment.cita_id == cita_id).first()
     if not payment:
-        raise HTTPException(status_code=404, detail="Pago no encontrado para esta cita")
+        return None
     return PaymentResponse.from_orm_with_relations(payment)
 
 
