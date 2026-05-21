@@ -19,6 +19,7 @@ from app.models.appointment import Appointment, BloqueoAgenda
 from app.models.consultation import Consultation, ConsultationPhoto
 from app.models.prescription import Prescription, PrescriptionMedicine
 from app.models.clinical_history import ClinicalHistory, ConsentimientoPaciente
+from app.models.clinical_history_ortodoncia import HistorialClinicoOrtodoncia
 from app.models.payment import Payment, PaymentPartial
 
 __all__ = [
@@ -44,6 +45,7 @@ __all__ = [
     "PrescriptionMedicine",
     "ClinicalHistory",
     "ConsentimientoPaciente",
+    "HistorialClinicoOrtodoncia",
     "Payment",
     "PaymentPartial",
 ]

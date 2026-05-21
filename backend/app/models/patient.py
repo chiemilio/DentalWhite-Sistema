@@ -56,6 +56,7 @@ class Patient(Base):
     citas = relationship("Appointment", back_populates="paciente")
     consultas = relationship("Consultation", back_populates="paciente")
     historial_clinico = relationship("ClinicalHistory", back_populates="paciente")
+    historial_ortodoncia = relationship("HistorialClinicoOrtodoncia", back_populates="paciente", uselist=False)
     consentimientos = relationship("ConsentimientoPaciente", back_populates="paciente")
     pagos = relationship("Payment", back_populates="paciente")
 

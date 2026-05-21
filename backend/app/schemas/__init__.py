@@ -9,6 +9,12 @@ from app.schemas.appointment import AppointmentBase, AppointmentCreate, Appointm
 from app.schemas.consultation import ConsultationBase, ConsultationCreate, ConsultationUpdate, ConsultationResponse
 from app.schemas.prescription import PrescriptionBase, PrescriptionCreate, PrescriptionResponse
 from app.schemas.clinical_history import ClinicalHistoryBase, ClinicalHistoryCreate, ClinicalHistoryResponse
+from app.schemas.clinical_history_ortodoncia import (
+    HistorialClinicoOrtodonciaBase,
+    HistorialClinicoOrtodonciaCreate,
+    HistorialClinicoOrtodonciaUpdate,
+    HistorialClinicoOrtodonciaResponse,
+)
 
 __all__ = [
     # Auth
@@ -49,4 +55,9 @@ __all__ = [
     "ClinicalHistoryBase",
     "ClinicalHistoryCreate",
     "ClinicalHistoryResponse",
+    # Clinical History Ortodoncia
+    "HistorialClinicoOrtodonciaBase",
+    "HistorialClinicoOrtodonciaCreate",
+    "HistorialClinicoOrtodonciaUpdate",
+    "HistorialClinicoOrtodonciaResponse",
 ]

@@ -1,72 +1,135 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import logoImage from 'figma:asset/da6a072baf78bdc68ca5368ac2123d8644ed8db8.png';
 import { Patient } from '../data/mockData';
 
 interface ClinicalHistoryFormProps {
   patient: Patient;
   doctorName: string;
+  onDataChange?: (data: ClinicalHistoryData) => void;
+  initialData?: Partial<ClinicalHistoryData>;
 }
 
-export function ClinicalHistoryForm({ patient, doctorName }: ClinicalHistoryFormProps) {
-  // Estado para los campos editables
-  const [formData, setFormData] = useState({
-    dni: '',
-    representante: '',
+export interface ClinicalHistoryData {
+  dni: string;
+  representante: string;
+  ocupacion: string;
+  nombre_doctor: string;
+  estado_fisico: string;
+  estado_dental: string;
+  atencion_medica: string;
+  forma: string;
+  simetria: string;
+  perfil: string;
+  frente: string;
+  orejas: string;
+  tic: string;
+  rictus: string;
+  linea_bipupilar: string;
+  musculatura_labial: string;
+  hiperactividad_mentoniana: string;
+  relacion_molar: string;
+  relacion_canina: string;
+  relacion_incisal: string;
+  over_jet: string;
+  over_bite: string;
+  mordida_abierta: string;
+  linea_media: string;
+  dientes_ausentes: string;
+  dientes_malformados: string;
+  dientes_con_caries: string;
+  temporales: string;
+  mordida_cruzada: string;
+  tecnica_cepillado: string;
+  estado_parodontal: string;
+  cefalografia: string;
+  ortoradiales: string;
+  palmar: string;
+  oclusal: string;
+  oblicua: string;
+  ortopantografias: string;
+  mesioradial: string;
+  ausencia_congenita: string;
+  supernumerarios: string;
+  quistes: string;
+  lesiones_periapicales: string;
+  inclusiones: string;
+  resorcion_radicular: string;
+  terceros_molares: string;
+  raices_enanas: string;
+  raices_anormales: string;
+}
+
+const defaultData: ClinicalHistoryData = {
+  dni: '',
+  representante: '',
+  ocupacion: '',
+  nombre_doctor: '',
+  estado_fisico: '',
+  estado_dental: '',
+  atencion_medica: '',
+  forma: '',
+  simetria: '',
+  perfil: '',
+  frente: '',
+  orejas: '',
+  tic: '',
+  rictus: '',
+  linea_bipupilar: '',
+  musculatura_labial: '',
+  hiperactividad_mentoniana: '',
+  relacion_molar: '',
+  relacion_canina: '',
+  relacion_incisal: '',
+  over_jet: '',
+  over_bite: '',
+  mordida_abierta: '',
+  linea_media: '',
+  dientes_ausentes: '',
+  dientes_malformados: '',
+  dientes_con_caries: '',
+  temporales: '',
+  mordida_cruzada: '',
+  tecnica_cepillado: '',
+  estado_parodontal: '',
+  cefalografia: '',
+  ortoradiales: '',
+  palmar: '',
+  oclusal: '',
+  oblicua: '',
+  ortopantografias: '',
+  mesioradial: '',
+  ausencia_congenita: '',
+  supernumerarios: '',
+  quistes: '',
+  lesiones_periapicales: '',
+  inclusiones: '',
+  resorcion_radicular: '',
+  terceros_molares: '',
+  raices_enanas: '',
+  raices_anormales: '',
+};
+
+export function ClinicalHistoryForm({ patient, doctorName, onDataChange, initialData }: ClinicalHistoryFormProps) {
+  const [formData, setFormData] = useState<ClinicalHistoryData>({
+    ...defaultData,
     ocupacion: patient.occupation || '',
-    nombreDoctor: doctorName,
-    // Estado actual
-    estadoFisico: '',
-    estadoDental: '',
-    // Antecedentes
-    atencionMedica: '',
-    // Examen de la cara
-    forma: '',
-    simetria: '',
-    perfil: '',
-    frente: '',
-    orejas: '',
-    tic: '',
-    rictus: '',
-    lineaBipupilar: '',
-    // Línea de Holdaway
-    muscuLaturaLabial: '',
-    hiperactividad: '',
-    // Examen bucal
-    relacionMolar: '',
-    relacionCanina: '',
-    relacionIncisal: '',
-    overJet: '',
-    overBite: '',
-    mordidaAbierta: '',
-    lineaMedia: '',
-    dientesAusente: '',
-    dientesMalformados: '',
-    dientesCaries: '',
-    temporales: '',
-    mordidaCruzada: '',
-    tecnicaCepillado: '',
-    estadoParodontal: '',
-    // Examen radiográfico
-    cefalografia: '',
-    ortoradiales: '',
-    palmar: '',
-    oclusal: '',
-    oblicua: '',
-    ortopantografias: '',
-    mesioradial: '',
-    ausenciaCongenita: '',
-    supernomerarios: '',
-    quistes: '',
-    lesionesPeriapicales: '',
-    inclusiones: '',
-    resorcionRadicular: '',
-    tercerosMolares: '',
-    raicesEnanas: '',
-    raicesAnormales: '',
+    nombre_doctor: doctorName,
+    ...initialData,
   });
 
-  const handleChange = (field: string, value: string) => {
-    setFormData({ ...formData, [field]: value });
+  useEffect(() => {
+    setFormData({
+      ...defaultData,
+      ocupacion: patient.occupation || '',
+      nombre_doctor: doctorName,
+      ...initialData,
+    });
+  }, [patient.id, doctorName, initialData]);
+
+  const handleChange = (field: keyof ClinicalHistoryData, value: string) => {
+    const newData = { ...formData, [field]: value };
+    setFormData(newData);
+    onDataChange?.(newData);
   };
 
   return (
@@ -151,9 +214,26 @@ export function ClinicalHistoryForm({ patient, doctorName }: ClinicalHistoryForm
           </div>
 
           <div className="flex items-center">
+            <span className="font-bold mr-1 text-[11px] whitespace-nowrap">DNI</span>
+            <div className="flex-1 border-b border-black px-1">
+              <input
+                type="text"
+                value={formData.dni}
+                onChange={(e) => handleChange('dni', e.target.value)}
+                className="w-full outline-none bg-transparent text-[11px]"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center">
             <span className="font-bold mr-1 text-[11px] whitespace-nowrap">NOMBRE DEL PADRE O TUTOR</span>
             <div className="flex-1 border-b border-black px-1">
-              <span className="text-[11px]">{patient.tutor || 'N/A'}</span>
+              <input
+                type="text"
+                value={formData.representante}
+                onChange={(e) => handleChange('representante', e.target.value)}
+                className="w-full outline-none bg-transparent text-[11px]"
+              />
             </div>
           </div>
 
@@ -174,8 +254,8 @@ export function ClinicalHistoryForm({ patient, doctorName }: ClinicalHistoryForm
             <div className="flex-1 border-b border-black px-1">
               <input
                 type="text"
-                value={formData.nombreDoctor}
-                onChange={(e) => handleChange('nombreDoctor', e.target.value)}
+                value={formData.nombre_doctor}
+                onChange={(e) => handleChange('nombre_doctor', e.target.value)}
                 className="w-full outline-none bg-transparent text-[11px]"
               />
             </div>
@@ -184,7 +264,7 @@ export function ClinicalHistoryForm({ patient, doctorName }: ClinicalHistoryForm
 
         {/* HISTOTIA CLINICA Section */}
         <div className="pt-2">
-          <h3 className="text-center text-sm font-bold mb-2">HISTOTIA CLINICA</h3>
+          <h3 className="text-center text-sm font-bold mb-2">HISTORIA CLINICA</h3>
           
           <table className="w-full border border-black mb-2 text-[10px]">
             <thead>
@@ -199,25 +279,25 @@ export function ClinicalHistoryForm({ patient, doctorName }: ClinicalHistoryForm
               <tr className="border-b border-black">
                 <td className="border-r border-black p-1 font-bold">FISICO</td>
                 <td className="border-r border-black p-1 text-center">
-                  <input type="checkbox" checked={formData.estadoFisico === 'bueno'} onChange={() => handleChange('estadoFisico', 'bueno')} />
+                  <input type="checkbox" checked={formData.estado_fisico === 'bueno'} onChange={() => handleChange('estado_fisico', 'bueno')} />
                 </td>
                 <td className="border-r border-black p-1 text-center">
-                  <input type="checkbox" checked={formData.estadoFisico === 'malo'} onChange={() => handleChange('estadoFisico', 'malo')} />
+                  <input type="checkbox" checked={formData.estado_fisico === 'malo'} onChange={() => handleChange('estado_fisico', 'malo')} />
                 </td>
                 <td className="p-1 text-center">
-                  <input type="checkbox" checked={formData.estadoFisico === 'regular'} onChange={() => handleChange('estadoFisico', 'regular')} />
+                  <input type="checkbox" checked={formData.estado_fisico === 'regular'} onChange={() => handleChange('estado_fisico', 'regular')} />
                 </td>
               </tr>
               <tr>
                 <td className="border-r border-black p-1 font-bold">DENTAL</td>
                 <td className="border-r border-black p-1 text-center">
-                  <input type="checkbox" checked={formData.estadoDental === 'bueno'} onChange={() => handleChange('estadoDental', 'bueno')} />
+                  <input type="checkbox" checked={formData.estado_dental === 'bueno'} onChange={() => handleChange('estado_dental', 'bueno')} />
                 </td>
                 <td className="border-r border-black p-1 text-center">
-                  <input type="checkbox" checked={formData.estadoDental === 'malo'} onChange={() => handleChange('estadoDental', 'malo')} />
+                  <input type="checkbox" checked={formData.estado_dental === 'malo'} onChange={() => handleChange('estado_dental', 'malo')} />
                 </td>
                 <td className="p-1 text-center">
-                  <input type="checkbox" checked={formData.estadoDental === 'regular'} onChange={() => handleChange('estadoDental', 'regular')} />
+                  <input type="checkbox" checked={formData.estado_dental === 'regular'} onChange={() => handleChange('estado_dental', 'regular')} />
                 </td>
               </tr>
             </tbody>
@@ -247,7 +327,6 @@ export function ClinicalHistoryForm({ patient, doctorName }: ClinicalHistoryForm
                 <td className="border-r border-black p-1 text-center">DEDO</td>
                 <td className="p-1" colSpan={2}>
                   <span className="font-bold">OTRO:</span>
-                  <input type="text" className="ml-1 border-b border-black w-20 outline-none text-[9px]" />
                 </td>
               </tr>
               <tr className="border-b border-black">
@@ -275,9 +354,12 @@ export function ClinicalHistoryForm({ patient, doctorName }: ClinicalHistoryForm
             <div className="flex items-start">
               <span className="font-bold mr-1 whitespace-nowrap text-[10px]">EN EL ULTIMO AÑO ¿RECIBIO USTED ATENCION MEDICA? CAUSA</span>
             </div>
-            <input type="text" className="w-full border-b border-black outline-none text-[10px]" />
-            <input type="text" className="w-full border-b border-black outline-none text-[10px]" />
-            <input type="text" className="w-full border-b border-black outline-none text-[10px]" />
+            <input
+              type="text"
+              value={formData.atencion_medica}
+              onChange={(e) => handleChange('atencion_medica', e.target.value)}
+              className="w-full border-b border-black outline-none text-[10px]"
+            />
           </div>
         </div>
 
@@ -349,7 +431,7 @@ export function ClinicalHistoryForm({ patient, doctorName }: ClinicalHistoryForm
                 </td>
                 <td className="border-r border-black p-1 font-bold text-center">LINEA BIPUPILAR</td>
                 <td className="p-1">
-                  <input type="text" value={formData.lineaBipupilar} onChange={(e) => handleChange('lineaBipupilar', e.target.value)} className="w-full outline-none bg-transparent text-[10px]" />
+                  <input type="text" value={formData.linea_bipupilar} onChange={(e) => handleChange('linea_bipupilar', e.target.value)} className="w-full outline-none bg-transparent text-[10px]" />
                 </td>
               </tr>
             </tbody>
@@ -363,26 +445,26 @@ export function ClinicalHistoryForm({ patient, doctorName }: ClinicalHistoryForm
             <div className="flex items-center gap-2">
               <span className="font-bold">MUSCULATURA LABIAL:</span>
               <label className="flex items-center gap-1">
-                <input type="radio" name="muscuLabial" checked={formData.muscuLaturaLabial === 'debil'} onChange={() => handleChange('muscuLaturaLabial', 'debil')} />
+                <input type="radio" name="muscuLabial" checked={formData.musculatura_labial === 'debil'} onChange={() => handleChange('musculatura_labial', 'debil')} />
                 <span>DEBIL</span>
               </label>
               <label className="flex items-center gap-1">
-                <input type="radio" name="muscuLabial" checked={formData.muscuLaturaLabial === 'normal'} onChange={() => handleChange('muscuLaturaLabial', 'normal')} />
+                <input type="radio" name="muscuLabial" checked={formData.musculatura_labial === 'normal'} onChange={() => handleChange('musculatura_labial', 'normal')} />
                 <span>NORMAL</span>
               </label>
               <label className="flex items-center gap-1">
-                <input type="radio" name="muscuLabial" checked={formData.muscuLaturaLabial === 'fuerte'} onChange={() => handleChange('muscuLaturaLabial', 'fuerte')} />
+                <input type="radio" name="muscuLabial" checked={formData.musculatura_labial === 'fuerte'} onChange={() => handleChange('musculatura_labial', 'fuerte')} />
                 <span>FUERTE</span>
               </label>
             </div>
             <div className="flex items-center gap-2">
               <span className="font-bold">HIPERACTIVIDAD MENTONIANA:</span>
               <label className="flex items-center gap-1">
-                <input type="radio" name="hiper" checked={formData.hiperactividad === 'si'} onChange={() => handleChange('hiperactividad', 'si')} />
+                <input type="radio" name="hiper" checked={formData.hiperactividad_mentoniana === 'si'} onChange={() => handleChange('hiperactividad_mentoniana', 'si')} />
                 <span>SI</span>
               </label>
               <label className="flex items-center gap-1">
-                <input type="radio" name="hiper" checked={formData.hiperactividad === 'no'} onChange={() => handleChange('hiperactividad', 'no')} />
+                <input type="radio" name="hiper" checked={formData.hiperactividad_mentoniana === 'no'} onChange={() => handleChange('hiperactividad_mentoniana', 'no')} />
                 <span>NO</span>
               </label>
             </div>
@@ -395,52 +477,52 @@ export function ClinicalHistoryForm({ patient, doctorName }: ClinicalHistoryForm
           <div className="space-y-1 text-[10px]">
             <div className="flex items-center gap-2">
               <span className="font-bold w-32">RELACION MOLAR</span>
-              <input type="text" value={formData.relacionMolar} onChange={(e) => handleChange('relacionMolar', e.target.value)} className="flex-1 border-b border-black outline-none text-[10px]" />
+              <input type="text" value={formData.relacion_molar} onChange={(e) => handleChange('relacion_molar', e.target.value)} className="flex-1 border-b border-black outline-none text-[10px]" />
             </div>
             <div className="flex items-center gap-2">
               <span className="font-bold w-32">RELACION CANINA</span>
-              <input type="text" value={formData.relacionCanina} onChange={(e) => handleChange('relacionCanina', e.target.value)} className="flex-1 border-b border-black outline-none text-[10px]" />
+              <input type="text" value={formData.relacion_canina} onChange={(e) => handleChange('relacion_canina', e.target.value)} className="flex-1 border-b border-black outline-none text-[10px]" />
             </div>
             <div className="flex items-center gap-2">
               <span className="font-bold w-32">RELACION INCISAL</span>
-              <input type="text" value={formData.relacionIncisal} onChange={(e) => handleChange('relacionIncisal', e.target.value)} className="flex-1 border-b border-black outline-none text-[10px]" />
+              <input type="text" value={formData.relacion_incisal} onChange={(e) => handleChange('relacion_incisal', e.target.value)} className="flex-1 border-b border-black outline-none text-[10px]" />
             </div>
             
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1">
                 <span className="font-bold">OVER JET (MM)</span>
-                <input type="text" value={formData.overJet} onChange={(e) => handleChange('overJet', e.target.value)} className="w-16 border-b border-black outline-none text-[10px]" />
+                <input type="text" value={formData.over_jet} onChange={(e) => handleChange('over_jet', e.target.value)} className="w-16 border-b border-black outline-none text-[10px]" />
               </div>
               <div className="flex items-center gap-1">
                 <span className="font-bold">OVER BITE(MM)</span>
-                <input type="text" value={formData.overBite} onChange={(e) => handleChange('overBite', e.target.value)} className="w-16 border-b border-black outline-none text-[10px]" />
+                <input type="text" value={formData.over_bite} onChange={(e) => handleChange('over_bite', e.target.value)} className="w-16 border-b border-black outline-none text-[10px]" />
               </div>
               <div className="flex items-center gap-1">
                 <span className="font-bold">MORDIDA ABIERTA(MM)</span>
-                <input type="text" value={formData.mordidaAbierta} onChange={(e) => handleChange('mordidaAbierta', e.target.value)} className="w-16 border-b border-black outline-none text-[10px]" />
+                <input type="text" value={formData.mordida_abierta} onChange={(e) => handleChange('mordida_abierta', e.target.value)} className="w-16 border-b border-black outline-none text-[10px]" />
               </div>
             </div>
 
             <div className="flex items-center gap-2">
               <span className="font-bold w-24">LINEA MEDIA</span>
-              <input type="text" value={formData.lineaMedia} onChange={(e) => handleChange('lineaMedia', e.target.value)} className="flex-1 border-b border-black outline-none text-[10px]" />
+              <input type="text" value={formData.linea_media} onChange={(e) => handleChange('linea_media', e.target.value)} className="flex-1 border-b border-black outline-none text-[10px]" />
             </div>
 
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1 flex-1">
                 <span className="font-bold whitespace-nowrap">DIENTES AUSENTE</span>
-                <input type="text" value={formData.dientesAusente} onChange={(e) => handleChange('dientesAusente', e.target.value)} className="flex-1 border-b border-black outline-none text-[10px]" />
+                <input type="text" value={formData.dientes_ausentes} onChange={(e) => handleChange('dientes_ausentes', e.target.value)} className="flex-1 border-b border-black outline-none text-[10px]" />
               </div>
               <div className="flex items-center gap-1 flex-1">
                 <span className="font-bold whitespace-nowrap">DIENTES MALFORMADOS</span>
-                <input type="text" value={formData.dientesMalformados} onChange={(e) => handleChange('dientesMalformados', e.target.value)} className="flex-1 border-b border-black outline-none text-[10px]" />
+                <input type="text" value={formData.dientes_malformados} onChange={(e) => handleChange('dientes_malformados', e.target.value)} className="flex-1 border-b border-black outline-none text-[10px]" />
               </div>
             </div>
 
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1 flex-1">
                 <span className="font-bold whitespace-nowrap">DIENTES CON CARIES</span>
-                <input type="text" value={formData.dientesCaries} onChange={(e) => handleChange('dientesCaries', e.target.value)} className="flex-1 border-b border-black outline-none text-[10px]" />
+                <input type="text" value={formData.dientes_con_caries} onChange={(e) => handleChange('dientes_con_caries', e.target.value)} className="flex-1 border-b border-black outline-none text-[10px]" />
               </div>
               <div className="flex items-center gap-1 flex-1">
                 <span className="font-bold">TEMPORALES</span>
@@ -455,46 +537,58 @@ export function ClinicalHistoryForm({ patient, doctorName }: ClinicalHistoryForm
                   <td className="border-r border-black p-1 font-bold">MORDIDA CRUZADA POSTERIOR</td>
                   <td className="border-r border-black p-1 text-center">
                     <label className="flex items-center justify-center gap-1">
-                      <input type="radio" name="mordida" checked={formData.mordidaCruzada === 'unilateral'} onChange={() => handleChange('mordidaCruzada', 'unilateral')} />
+                      <input type="radio" name="mordida" checked={formData.mordida_cruzada === 'unilateral'} onChange={() => handleChange('mordida_cruzada', 'unilateral')} />
                       <span>UNILATERAL</span>
                     </label>
                   </td>
                   <td className="border-r border-black p-1 text-center">
                     <label className="flex items-center justify-center gap-1">
-                      <input type="radio" name="mordida" checked={formData.mordidaCruzada === 'bilateral'} onChange={() => handleChange('mordidaCruzada', 'bilateral')} />
+                      <input type="radio" name="mordida" checked={formData.mordida_cruzada === 'bilateral'} onChange={() => handleChange('mordida_cruzada', 'bilateral')} />
                       <span>BILATERAL</span>
                     </label>
                   </td>
                   <td className="p-1"></td>
                 </tr>
                 <tr className="border-b border-black">
-                  <td className="border-r border-black p-1 font-bold">TECNICA DE SEPILLADO</td>
+                  <td className="border-r border-black p-1 font-bold">TECNICA DE CEPILLADO</td>
                   <td className="border-r border-black p-1 text-center">
-                    <input type="checkbox" checked={formData.tecnicaCepillado === 'buena'} onChange={() => handleChange('tecnicaCepillado', 'buena')} />
-                    <span className="ml-1">BUENA</span>
+                    <label className="flex items-center justify-center gap-1">
+                      <input type="radio" name="cepillado" checked={formData.tecnica_cepillado === 'buena'} onChange={() => handleChange('tecnica_cepillado', 'buena')} />
+                      <span>BUENA</span>
+                    </label>
                   </td>
                   <td className="border-r border-black p-1 text-center">
-                    <input type="checkbox" checked={formData.tecnicaCepillado === 'mala'} onChange={() => handleChange('tecnicaCepillado', 'mala')} />
-                    <span className="ml-1">MALA</span>
+                    <label className="flex items-center justify-center gap-1">
+                      <input type="radio" name="cepillado" checked={formData.tecnica_cepillado === 'mala'} onChange={() => handleChange('tecnica_cepillado', 'mala')} />
+                      <span>MALA</span>
+                    </label>
                   </td>
                   <td className="p-1 text-center">
-                    <input type="checkbox" checked={formData.tecnicaCepillado === 'regular'} onChange={() => handleChange('tecnicaCepillado', 'regular')} />
-                    <span className="ml-1">REGULAR</span>
+                    <label className="flex items-center justify-center gap-1">
+                      <input type="radio" name="cepillado" checked={formData.tecnica_cepillado === 'regular'} onChange={() => handleChange('tecnica_cepillado', 'regular')} />
+                      <span>REGULAR</span>
+                    </label>
                   </td>
                 </tr>
                 <tr>
                   <td className="border-r border-black p-1 font-bold">ESTADO PARODONTAL</td>
                   <td className="border-r border-black p-1 text-center">
-                    <input type="checkbox" checked={formData.estadoParodontal === 'bueno'} onChange={() => handleChange('estadoParodontal', 'bueno')} />
-                    <span className="ml-1">BUENO</span>
+                    <label className="flex items-center justify-center gap-1">
+                      <input type="radio" name="parodontal" checked={formData.estado_parodontal === 'bueno'} onChange={() => handleChange('estado_parodontal', 'bueno')} />
+                      <span>BUENO</span>
+                    </label>
                   </td>
                   <td className="border-r border-black p-1 text-center">
-                    <input type="checkbox" checked={formData.estadoParodontal === 'malo'} onChange={() => handleChange('estadoParodontal', 'malo')} />
-                    <span className="ml-1">MALO</span>
+                    <label className="flex items-center justify-center gap-1">
+                      <input type="radio" name="parodontal" checked={formData.estado_parodontal === 'malo'} onChange={() => handleChange('estado_parodontal', 'malo')} />
+                      <span>MALO</span>
+                    </label>
                   </td>
                   <td className="p-1 text-center">
-                    <input type="checkbox" checked={formData.estadoParodontal === 'regular'} onChange={() => handleChange('estadoParodontal', 'regular')} />
-                    <span className="ml-1">REGULAR</span>
+                    <label className="flex items-center justify-center gap-1">
+                      <input type="radio" name="parodontal" checked={formData.estado_parodontal === 'regular'} onChange={() => handleChange('estado_parodontal', 'regular')} />
+                      <span>REGULAR</span>
+                    </label>
                   </td>
                 </tr>
               </tbody>
@@ -552,11 +646,11 @@ export function ClinicalHistoryForm({ patient, doctorName }: ClinicalHistoryForm
               <tr className="border-b border-black">
                 <td className="border-r border-black p-1 font-bold w-1/4">AUSENCIA CONGENITA</td>
                 <td className="border-r border-black p-1">
-                  <input type="text" value={formData.ausenciaCongenita} onChange={(e) => handleChange('ausenciaCongenita', e.target.value)} className="w-full outline-none bg-transparent text-[9px]" />
+                  <input type="text" value={formData.ausencia_congenita} onChange={(e) => handleChange('ausencia_congenita', e.target.value)} className="w-full outline-none bg-transparent text-[9px]" />
                 </td>
-                <td className="border-r border-black p-1 font-bold w-1/4">SUPERNOMERARIOS</td>
+                <td className="border-r border-black p-1 font-bold w-1/4">SUPERNUMERARIOS</td>
                 <td className="p-1">
-                  <input type="text" value={formData.supernomerarios} onChange={(e) => handleChange('supernomerarios', e.target.value)} className="w-full outline-none bg-transparent text-[9px]" />
+                  <input type="text" value={formData.supernumerarios} onChange={(e) => handleChange('supernumerarios', e.target.value)} className="w-full outline-none bg-transparent text-[9px]" />
                 </td>
               </tr>
               <tr className="border-b border-black">
@@ -566,7 +660,7 @@ export function ClinicalHistoryForm({ patient, doctorName }: ClinicalHistoryForm
                 </td>
                 <td className="border-r border-black p-1 font-bold">LESIONES PERIAPICALES</td>
                 <td className="p-1">
-                  <input type="text" value={formData.lesionesPeriapicales} onChange={(e) => handleChange('lesionesPeriapicales', e.target.value)} className="w-full outline-none bg-transparent text-[9px]" />
+                  <input type="text" value={formData.lesiones_periapicales} onChange={(e) => handleChange('lesiones_periapicales', e.target.value)} className="w-full outline-none bg-transparent text-[9px]" />
                 </td>
               </tr>
               <tr className="border-b border-black">
@@ -576,23 +670,23 @@ export function ClinicalHistoryForm({ patient, doctorName }: ClinicalHistoryForm
                 </td>
                 <td className="border-r border-black p-1 font-bold">RESORCION RADICULAR</td>
                 <td className="p-1">
-                  <input type="text" value={formData.resorcionRadicular} onChange={(e) => handleChange('resorcionRadicular', e.target.value)} className="w-full outline-none bg-transparent text-[9px]" />
+                  <input type="text" value={formData.resorcion_radicular} onChange={(e) => handleChange('resorcion_radicular', e.target.value)} className="w-full outline-none bg-transparent text-[9px]" />
                 </td>
               </tr>
               <tr className="border-b border-black">
                 <td className="border-r border-black p-1 font-bold">TERCEROS MOLARES</td>
                 <td className="border-r border-black p-1">
-                  <input type="text" value={formData.tercerosMolares} onChange={(e) => handleChange('tercerosMolares', e.target.value)} className="w-full outline-none bg-transparent text-[9px]" />
+                  <input type="text" value={formData.terceros_molares} onChange={(e) => handleChange('terceros_molares', e.target.value)} className="w-full outline-none bg-transparent text-[9px]" />
                 </td>
                 <td className="border-r border-black p-1 font-bold">RAICES ENANAS</td>
                 <td className="p-1">
-                  <input type="text" value={formData.raicesEnanas} onChange={(e) => handleChange('raicesEnanas', e.target.value)} className="w-full outline-none bg-transparent text-[9px]" />
+                  <input type="text" value={formData.raices_enanas} onChange={(e) => handleChange('raices_enanas', e.target.value)} className="w-full outline-none bg-transparent text-[9px]" />
                 </td>
               </tr>
               <tr>
                 <td className="border-r border-black p-1 font-bold">RAICES ANORMALES</td>
                 <td className="p-1" colSpan={3}>
-                  <input type="text" value={formData.raicesAnormales} onChange={(e) => handleChange('raicesAnormales', e.target.value)} className="w-full outline-none bg-transparent text-[9px]" />
+                  <input type="text" value={formData.raices_anormales} onChange={(e) => handleChange('raices_anormales', e.target.value)} className="w-full outline-none bg-transparent text-[9px]" />
                 </td>
               </tr>
             </tbody>

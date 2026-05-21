@@ -26,7 +26,7 @@ import { apiClient, type BackendAppointment, type BackendPatient } from '../../.
 import { PatientDiagnosisView } from '../../patients/components/PatientDiagnosisView';
 import { PrintableMedicalRecord } from '../../medical-records/components/PrintableMedicalRecord';
 import { ConsentForm } from '../../medical-records/components/ConsentForm';
-import { ClinicalHistoryForm } from '../../medical-records/components/ClinicalHistoryForm';
+import { ClinicalHistoryForm, type ClinicalHistoryData } from '../../medical-records/components/ClinicalHistoryForm';
 
 export function DoctorDashboard() {
   const { user } = useAuth();
@@ -50,6 +50,9 @@ export function DoctorDashboard() {
   const [selectedDate, setSelectedDate] = useState(getLocalDateString(new Date()));
   const [isClinicalHistoryOpen, setIsClinicalHistoryOpen] = useState(false);
   const [isConsentFormOpen, setIsConsentFormOpen] = useState(false);
+  const [clinicalHistoryData, setClinicalHistoryData] = useState<Partial<ClinicalHistoryData>>({});
+  const [isSavingClinicalHistory, setIsSavingClinicalHistory] = useState(false);
+  const [existingClinicalHistory, setExistingClinicalHistory] = useState<ClinicalHistoryData | null>(null);
   
   // Appointment management states
   const [isRescheduleDialogOpen, setIsRescheduleDialogOpen] = useState(false);
@@ -210,18 +213,20 @@ const loadData = async () => {
     const patient = patients.find((p) => p.id === selectedPatientId);
     if (!patient) return;
 
+    const age = patient.fecha_nacimiento ? Math.floor((Date.now() - new Date(patient.fecha_nacimiento).getTime()) / 31557600000) : 0;
+
     const record: MedicalRecord = {
       id: (medicalRecords.length + 1).toString(),
       patientId: patient.id,
-      patientName: patient.name,
+      patientName: patient.usuario_nombre || `Paciente #${patient.id}`,
       createdDate: new Date().toISOString().split('T')[0],
       startDate: new Date().toISOString().split('T')[0],
-      address: patient.address,
-      phone: patient.phone,
-      occupation: patient.occupation,
-      age: patient.age,
+      address: patient.direccion || '',
+      phone: patient.usuario_telefono || '',
+      occupation: patient.ocupacion || '',
+      age: age,
       reference: 'Sistema',
-      sex: patient.sex,
+      sex: patient.sexo || 'N/A',
       color: 'Normal',
       assignedDoctor: user?.name || '',
       appointmentHistory: [],
@@ -245,6 +250,65 @@ const loadData = async () => {
       }
     } catch (error) {
       toast.error('Error al cargar expediente');
+    }
+  };
+
+  const handleSaveClinicalHistory = async () => {
+    if (!selectedPatientId) {
+      toast.error('Selecciona un paciente');
+      return;
+    }
+    setIsSavingClinicalHistory(true);
+    try {
+      const payload = {
+        paciente_id: parseInt(selectedPatientId),
+        ...clinicalHistoryData,
+      };
+      await apiClient.post('/clinical-history/ortodoncia/', payload, true);
+      toast.success('Historial clínico guardado exitosamente');
+      setIsClinicalHistoryOpen(false);
+      setSelectedPatientId('');
+      setClinicalHistoryData({});
+      setExistingClinicalHistory(null);
+    } catch (error: any) {
+      if (error.message?.includes('409') || error.message?.includes('ya tiene')) {
+        try {
+          const payload = { ...clinicalHistoryData };
+          await apiClient.put(`/clinical-history/ortodoncia/${selectedPatientId}`, payload, true);
+          toast.success('Historial clínico actualizado exitosamente');
+          setIsClinicalHistoryOpen(false);
+          setSelectedPatientId('');
+          setClinicalHistoryData({});
+          setExistingClinicalHistory(null);
+        } catch (updateError: any) {
+          toast.error(`Error al actualizar: ${updateError.message}`);
+        }
+      } else {
+        toast.error(`Error al guardar: ${error.message}`);
+      }
+    } finally {
+      setIsSavingClinicalHistory(false);
+    }
+  };
+
+  const handleLoadClinicalHistory = async (patientId: string) => {
+    if (!patientId) {
+      setClinicalHistoryData({});
+      setExistingClinicalHistory(null);
+      return;
+    }
+    try {
+      const data = await apiClient.get<any>(`/clinical-history/ortodoncia/?paciente_id=${patientId}`, true);
+      if (data) {
+        setExistingClinicalHistory(data);
+        setClinicalHistoryData(data);
+      } else {
+        setClinicalHistoryData({});
+        setExistingClinicalHistory(null);
+      }
+    } catch {
+      setClinicalHistoryData({});
+      setExistingClinicalHistory(null);
     }
   };
 
@@ -377,16 +441,19 @@ const loadData = async () => {
               <ScrollArea className="h-[85vh] pr-4">
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label className="text-xs">Seleccionar Paciente</Label>
+                    <Label className="text-xs">Seleccionar Paciente ({patients.length} disponibles)</Label>
                     <select
                       className="w-full px-3 py-2 text-sm border border-sky-200 rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500"
                       value={selectedPatientId}
-                      onChange={(e) => setSelectedPatientId(e.target.value)}
+                      onChange={(e) => {
+                        setSelectedPatientId(e.target.value);
+                        handleLoadClinicalHistory(e.target.value);
+                      }}
                     >
                       <option value="">Seleccionar...</option>
                       {patients.map((patient) => (
                         <option key={patient.id} value={patient.id}>
-                          {patient.name} - {patient.phone}
+                          {patient.usuario_nombre || `Paciente #${patient.id}`} - Exp: {patient.numero_expediente}
                         </option>
                       ))}
                     </select>
@@ -396,22 +463,35 @@ const loadData = async () => {
                     const patient = patients.find((p) => p.id === selectedPatientId);
                     
                     if (!patient) return null;
+
+                    const patientForForm = {
+                      id: patient.id.toString(),
+                      name: patient.usuario_nombre || 'Paciente',
+                      age: patient.fecha_nacimiento ? Math.floor((Date.now() - new Date(patient.fecha_nacimiento).getTime()) / 31557600000) : 0,
+                      sex: patient.sexo || 'N/A',
+                      address: patient.direccion || '',
+                      colony: patient.ciudad || '',
+                      municipality: patient.estado || '',
+                      postalCode: patient.codigo_postal || '',
+                      phone: patient.usuario_telefono || '',
+                      occupation: patient.ocupacion || '',
+                      tutor: patient.tutor_nombre || '',
+                    };
                     
                     return (
                       <div className="space-y-4">
                         <ClinicalHistoryForm
-                          patient={patient}
+                          patient={patientForForm}
                           doctorName={user?.name || ''}
+                          onDataChange={setClinicalHistoryData}
+                          initialData={existingClinicalHistory || undefined}
                         />
                         <Button
-                          onClick={() => {
-                            toast.success('Historial clínico guardado exitosamente');
-                            setIsClinicalHistoryOpen(false);
-                            setSelectedPatientId('');
-                          }}
+                          onClick={handleSaveClinicalHistory}
+                          disabled={isSavingClinicalHistory}
                           className="w-full bg-sky-500 hover:bg-sky-600 text-sm"
                         >
-                          Guardar e Imprimir Historial Clínico
+                          {isSavingClinicalHistory ? 'Guardando...' : (existingClinicalHistory ? 'Actualizar Historial Clínico' : 'Guardar e Imprimir Historial Clínico')}
                         </Button>
                       </div>
                     );
@@ -445,7 +525,7 @@ const loadData = async () => {
                       <option value="">Seleccionar...</option>
                       {patients.map((patient) => (
                         <option key={patient.id} value={patient.id}>
-                          {patient.name} - {patient.phone}
+                          {patient.usuario_nombre || `Paciente #${patient.id}`} - Exp: {patient.numero_expediente}
                         </option>
                       ))}
                     </select>
@@ -457,7 +537,7 @@ const loadData = async () => {
                     return (
                       <div className="space-y-4">
                         <ConsentForm
-                          patientName={patient?.name || ''}
+                          patientName={patient?.usuario_nombre || ''}
                           doctorName={user?.name || ''}
                         />
                         <Button
@@ -503,7 +583,7 @@ const loadData = async () => {
                       <option value="">Seleccionar...</option>
                       {patients.map((patient) => (
                         <option key={patient.id} value={patient.id}>
-                          {patient.name} - {patient.phone}
+                          {patient.usuario_nombre || `Paciente #${patient.id}`} - Exp: {patient.numero_expediente}
                         </option>
                       ))}
                     </select>
