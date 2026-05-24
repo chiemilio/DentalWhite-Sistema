@@ -64,6 +64,7 @@ export function DoctorDashboard() {
   const [attendingAppointment, setAttendingAppointment] = useState<BackendAppointment | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [viewingRecord, setViewingRecord] = useState<any>(null);
+  const [viewingServiceId, setViewingServiceId] = useState<number>(0);
 
   // Cargar datos desde API
   useEffect(() => {
@@ -204,46 +205,132 @@ const loadData = async () => {
     },
   });
 
-  const handleCreateRecord = () => {
+  const handleCreateRecord = async () => {
     if (!selectedPatientId) {
       toast.error('Selecciona un paciente');
       return;
     }
 
-    const patient = patients.find((p) => p.id === selectedPatientId);
-    if (!patient) return;
+    try {
+      const payload = {
+        medico_id: empleadoId,
+        datos: {
+          currentDentalTreatment: newRecord.currentDentalTreatment,
+          currentMedicalTreatment: newRecord.currentMedicalTreatment,
+          prescribedMedications: newRecord.prescribedMedications,
+          oralHygiene: newRecord.oralHygiene,
+          diet: newRecord.diet,
+          allergies: newRecord.allergies,
+          observations: newRecord.observations,
+          hardTissues: newRecord.hardTissues,
+          softTissues: newRecord.softTissues,
+          habits: newRecord.habits,
+          personalDiseases: newRecord.personalDiseases,
+          consultReason: newRecord.consultReason,
+        },
+      };
 
-    const age = patient.fecha_nacimiento ? Math.floor((Date.now() - new Date(patient.fecha_nacimiento).getTime()) / 31557600000) : 0;
+      await apiClient.put(`/expedientes/by-patient/${selectedPatientId}`, payload, true);
 
-    const record: MedicalRecord = {
-      id: (medicalRecords.length + 1).toString(),
-      patientId: patient.id,
-      patientName: patient.usuario_nombre || `Paciente #${patient.id}`,
-      createdDate: new Date().toISOString().split('T')[0],
-      startDate: new Date().toISOString().split('T')[0],
-      address: patient.direccion || '',
-      phone: patient.usuario_telefono || '',
-      occupation: patient.ocupacion || '',
-      age: age,
-      reference: 'Sistema',
-      sex: patient.sexo || 'N/A',
-      color: 'Normal',
-      assignedDoctor: user?.name || '',
-      appointmentHistory: [],
-      ...newRecord,
-    } as MedicalRecord;
-
-    setMedicalRecords([...medicalRecords, record]);
-    setIsRecordDialogOpen(false);
-    setSelectedPatientId('');
-    toast.success('Expediente creado exitosamente');
+      setIsRecordDialogOpen(false);
+      setSelectedPatientId('');
+      setNewRecord({
+        currentDentalTreatment: '',
+        currentMedicalTreatment: '',
+        prescribedMedications: '',
+        oralHygiene: '',
+        diet: '',
+        allergies: '',
+        observations: '',
+        hardTissues: { enamel: '', root: '', dentin: '', bone: '' },
+        softTissues: { gum: '', epithelialInsertion: '', pulp: '', palate: '', cheeks: '' },
+        habits: {
+          bruxism: false,
+          muscularContractions: false,
+          biteHabits: '',
+          sucking: { lips: false, tongue: false, fingers: false },
+        },
+        personalDiseases: {
+          cardiovascular: '',
+          nervousSystem: '',
+          respiratory: '',
+          hemorrhagicTendency: '',
+          labTests: '',
+          renal: '',
+          diabetes: '',
+          arthritis: '',
+          digestive: '',
+          generalState: '',
+        },
+        consultReason: {
+          emergency: false,
+          review: false,
+          caries: false,
+          odontoxesis: false,
+          bridge: false,
+          extraction: false,
+          amalgams: false,
+          prosthodontics: false,
+          other: '',
+        },
+      });
+      toast.success('Expediente guardado exitosamente');
+    } catch (error: any) {
+      toast.error('Error al guardar expediente: ' + (error.message || 'Error desconocido'));
+    }
   };
 
-  const handleViewRecord = async (patientId: string) => {
+  const handleViewRecord = async (patientId: string, servicioId?: number) => {
+    setViewingServiceId(servicioId || 0);
     try {
-      const record = await apiClient.get<any[]>(`/clinical-history/?paciente_id=${patientId}`, true);
-      if (record && record.length > 0) {
-        setViewingRecord(record[0]);
+      const records = await apiClient.get<any[]>(`/expedientes/?paciente_id=${patientId}`, true);
+      if (records && records.length > 0) {
+        const expediente = records[0];
+        const patient = patients.find((p) => p.id === parseInt(patientId));
+
+        const record: MedicalRecord = {
+          id: expediente.id.toString(),
+          patientId: patientId,
+          patientName: patient?.usuario_nombre || `Paciente #${patientId}`,
+          createdDate: expediente.fecha_creacion?.split('T')[0] || '',
+          startDate: expediente.fecha_creacion?.split('T')[0] || '',
+          address: patient?.direccion || '',
+          phone: patient?.usuario_telefono || '',
+          occupation: patient?.ocupacion || '',
+          age: patient?.fecha_nacimiento ? Math.floor((Date.now() - new Date(patient.fecha_nacimiento).getTime()) / 31557600000) : 0,
+          reference: 'Sistema',
+          sex: patient?.sexo || 'N/A',
+          colony: patient?.ciudad || '',
+          delegation: patient?.estado || '',
+          postalCode: patient?.codigo_postal || '',
+          assignedDoctor: user?.name || '',
+          clinicalHistory: { physicalState: 'good', dentalState: 'good' },
+          pathologicalHistory: {
+            tonsillitis: false, adenoids: false, herpes: false, flu: false, respiratoryProblems: false,
+          },
+          nonPathologicalHistory: { lip: false, tongue: false, objects: false, finger: false, other: '' },
+          habitFrequency: '', habitDuration: '', habitIntensity: '',
+          receivedMedicalAttention: false, medicalAttentionCause: '',
+          faceExam: { form: '', profile: '', ears: '', tic: '', rictus: '', bipupilarLine: '' },
+          holdawayLine: { labialMusculature: '', mentonianHyperactivity: false },
+          oralExam: {
+            molarRelation: '', canineRelation: '', incisalRelation: '',
+            overJet: '', overBite: '', openBite: '', midline: '',
+            absentTeeth: '', malformedTeeth: '', teethWithCavities: '',
+            temporaryTeeth: '', posteriorCrossbite: '', brushingTechnique: '', periodontalState: '',
+          },
+          radiographicExam: {
+            cephalography: '', orthoradial: '', palmar: '', occlusal: '',
+            oblique: '', orthopantography: '', mesioradial: '',
+            congenitalAbsence: '', supernumerary: '', cysts: '',
+            periapicalLesions: '', inclusions: '', radicularResorption: '',
+            thirdMolars: '', dwarfRoots: '', abnormalRoots: '',
+          },
+          observations: JSON.stringify(expediente.datos || {}, null, 2),
+          appointmentHistory: [],
+        };
+
+        setViewingRecord(record);
         setIsViewDialogOpen(true);
       } else {
         toast.error('Este paciente no tiene expediente');
@@ -260,32 +347,41 @@ const loadData = async () => {
     }
     setIsSavingClinicalHistory(true);
     try {
-      const payload = {
-        paciente_id: parseInt(selectedPatientId),
-        ...clinicalHistoryData,
-      };
-      await apiClient.post('/clinical-history/ortodoncia/', payload, true);
-      toast.success('Historial clínico guardado exitosamente');
+      const pacienteId = parseInt(selectedPatientId);
+      const fechaHoy = new Date().toISOString().split('T')[0];
+
+      // Check if record already exists for this patient+tipo
+      const existingRecords = await apiClient.get<any[]>(`/clinical-history/?paciente_id=${pacienteId}`, true);
+      const existingRecord = Array.isArray(existingRecords) ? existingRecords.find(
+        (r: any) => r.tipo_antecedente_id === 1
+      ) : null;
+
+      const descripcion = JSON.stringify(clinicalHistoryData);
+      const notas = clinicalHistoryData.atencion_medica || '';
+
+      if (existingRecord) {
+        await apiClient.put(`/clinical-history/${existingRecord.id}`, {
+          descripcion,
+          notas,
+        }, true);
+        toast.success('Historial clínico actualizado exitosamente');
+      } else {
+        await apiClient.post('/clinical-history/', {
+          paciente_id: pacienteId,
+          tipo_antecedente_id: 1,
+          descripcion,
+          fecha_diagnostico: fechaHoy,
+          notas,
+          activo: true,
+        }, true);
+        toast.success('Historial clínico guardado exitosamente');
+      }
       setIsClinicalHistoryOpen(false);
       setSelectedPatientId('');
       setClinicalHistoryData({});
       setExistingClinicalHistory(null);
     } catch (error: any) {
-      if (error.message?.includes('409') || error.message?.includes('ya tiene')) {
-        try {
-          const payload = { ...clinicalHistoryData };
-          await apiClient.put(`/clinical-history/ortodoncia/${selectedPatientId}`, payload, true);
-          toast.success('Historial clínico actualizado exitosamente');
-          setIsClinicalHistoryOpen(false);
-          setSelectedPatientId('');
-          setClinicalHistoryData({});
-          setExistingClinicalHistory(null);
-        } catch (updateError: any) {
-          toast.error(`Error al actualizar: ${updateError.message}`);
-        }
-      } else {
-        toast.error(`Error al guardar: ${error.message}`);
-      }
+      toast.error(`Error al guardar: ${error.message}`);
     } finally {
       setIsSavingClinicalHistory(false);
     }
@@ -298,10 +394,18 @@ const loadData = async () => {
       return;
     }
     try {
-      const data = await apiClient.get<any>(`/clinical-history/ortodoncia/?paciente_id=${patientId}`, true);
-      if (data) {
-        setExistingClinicalHistory(data);
-        setClinicalHistoryData(data);
+      const records = await apiClient.get<any[]>(`/clinical-history/?paciente_id=${patientId}`, true);
+      const record = Array.isArray(records) ? records.find(
+        (r: any) => r.tipo_antecedente_id === 1
+      ) : null;
+      if (record) {
+        setExistingClinicalHistory(record);
+        try {
+          const parsed = JSON.parse(record.descripcion || '{}');
+          setClinicalHistoryData(parsed);
+        } catch {
+          setClinicalHistoryData({});
+        }
       } else {
         setClinicalHistoryData({});
         setExistingClinicalHistory(null);
@@ -460,7 +564,7 @@ const loadData = async () => {
                   </div>
 
                   {selectedPatientId && (() => {
-                    const patient = patients.find((p) => p.id === selectedPatientId);
+                    const patient = patients.find((p) => p.id === parseInt(selectedPatientId));
                     
                     if (!patient) return null;
 
@@ -532,7 +636,7 @@ const loadData = async () => {
                   </div>
 
                   {selectedPatientId && (() => {
-                    const patient = patients.find((p) => p.id === selectedPatientId);
+                    const patient = patients.find((p) => p.id === parseInt(selectedPatientId));
                     
                     return (
                       <div className="space-y-4">
@@ -541,10 +645,23 @@ const loadData = async () => {
                           doctorName={user?.name || ''}
                         />
                         <Button
-                          onClick={() => {
-                            toast.success('Consentimiento registrado exitosamente');
-                            setIsConsentFormOpen(false);
-                            setSelectedPatientId('');
+                          onClick={async () => {
+                            if (!selectedPatientId) return;
+                            try {
+                              const today = new Date();
+                              const dateStr = today.toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' });
+                              const texto = `Consentimiento para Tratamiento Cosmético (Incluye Blanqueamiento y/o Carillas).\nPaciente: ${patient?.usuario_nombre || ''}\nDoctor: ${user?.name || ''}\nFecha: ${dateStr}\n\nEl paciente declara haber sido informado de los riesgos, beneficios y alternativas del tratamiento, autorizando su realización de forma voluntaria.`;
+                              await apiClient.post('/consentimientos/', {
+                                paciente_id: parseInt(selectedPatientId),
+                                servicio_id: 1,
+                                texto_consentimiento: texto,
+                              }, true);
+                              toast.success('Consentimiento registrado exitosamente');
+                              setIsConsentFormOpen(false);
+                              setSelectedPatientId('');
+                            } catch (error: any) {
+                              toast.error('Error al guardar consentimiento: ' + (error.message || ''));
+                            }
                           }}
                           className="w-full bg-sky-500 hover:bg-sky-600"
                         >
@@ -1115,7 +1232,7 @@ const loadData = async () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleViewRecord(appointment.paciente_id.toString())}
+                        onClick={() => handleViewRecord(appointment.paciente_id.toString(), appointment.servicio_id)}
                         className="border-sky-300 text-sky-600 hover:bg-sky-50"
                       >
                         <FileText className="mr-2" size={16} />
@@ -1139,7 +1256,7 @@ const loadData = async () => {
           </DialogHeader>
           {viewingRecord && (
             <ScrollArea className="h-[80vh] pr-4">
-              <PrintableMedicalRecord record={viewingRecord} />
+              <PrintableMedicalRecord record={viewingRecord} serviceId={viewingServiceId} />
             </ScrollArea>
           )}
         </DialogContent>

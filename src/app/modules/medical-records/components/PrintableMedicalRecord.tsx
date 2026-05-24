@@ -8,9 +8,10 @@ import { useRef } from 'react';
 
 interface PrintableMedicalRecordProps {
   record: MedicalRecord;
+  serviceId?: number; // 3 = Ortodoncia, otherwise shows only general sections
 }
 
-export function PrintableMedicalRecord({ record }: PrintableMedicalRecordProps) {
+export function PrintableMedicalRecord({ record, serviceId }: PrintableMedicalRecordProps) {
   const printRef = useRef<HTMLDivElement>(null);
 
   const handlePrint = () => {
@@ -267,14 +268,14 @@ export function PrintableMedicalRecord({ record }: PrintableMedicalRecordProps) 
         <div className="flex-1"></div>
         <div className="text-right">
           <div className="flex items-center justify-end gap-2">
-            <div className="text-base font-bold">ORTODONCIA</div>
+            {serviceId === 3 && <div className="text-base font-bold">ORTODONCIA</div>}
             <img src={logoImage} alt="Dental White" className="w-11 h-9 object-contain" />
           </div>
         </div>
       </div>
 
       {/* Número de página 1 */}
-      <div className="page-number">Página 1 de 2</div>
+      <div className="page-number">{serviceId === 3 ? 'Página 1 de 2' : 'Página 1 de 1'}</div>
 
       {/* PÁGINA 1 */}
       {/* Datos Generales del Paciente */}
@@ -508,6 +509,8 @@ export function PrintableMedicalRecord({ record }: PrintableMedicalRecordProps) 
         </tbody>
       </table>
 
+      {serviceId === 3 && (
+      <>
       {/* Salto de página */}
       <div className="page-break"></div>
 
@@ -662,6 +665,8 @@ export function PrintableMedicalRecord({ record }: PrintableMedicalRecordProps) 
           </tr>
         </tbody>
       </table>
+      </>
+      )}
 
       {/* Observaciones */}
       <div className="section-title">Observaciones</div>

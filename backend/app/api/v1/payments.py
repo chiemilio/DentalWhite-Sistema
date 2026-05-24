@@ -187,6 +187,33 @@ def get_payment_by_cita(
     return PaymentResponse.from_orm_with_relations(payment)
 
 
+@router.get("/abonos/all/")
+def get_all_abonos(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Obtener todos los abonos con información del pago y cita asociada"""
+    abonos = db.query(PaymentPartial).order_by(PaymentPartial.fecha_pago).all()
+    result = []
+    for a in abonos:
+        pago = db.query(Payment).filter(Payment.id == a.pago_id).first()
+        cita_id = pago.cita_id if pago else None
+        servicio_nombre = None
+        if pago and pago.cita and pago.cita.servicio:
+            servicio_nombre = pago.cita.servicio.nombre
+        result.append({
+            "id": a.id,
+            "pago_id": a.pago_id,
+            "cita_id": cita_id,
+            "monto": a.monto,
+            "metodo_pago": a.metodo_pago,
+            "fecha_pago": str(a.fecha_pago) if a.fecha_pago else None,
+            "numero_recibo": a.numero_recibo,
+            "servicio_nombre": servicio_nombre,
+        })
+    return result
+
+
 @router.get("/{payment_id}/abonos")
 def get_abonos(
     payment_id: int,

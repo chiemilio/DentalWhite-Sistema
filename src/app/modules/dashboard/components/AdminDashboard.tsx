@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../shared/ui/tab
 import { Input } from '../../../shared/ui/input';
 import { Label } from '../../../shared/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../shared/ui/select';
-import { apiClient, type BackendEmployee, type BackendPatient } from '../../../shared/utils/api';
+import { apiClient, type BackendEmployee, type BackendPatient, type BackendAppointment, type BackendPayment, type BackendPaymentPartial } from '../../../shared/utils/api';
 import {
   Table,
   TableBody,
@@ -19,9 +19,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Textarea } from '../../../shared/ui/textarea';
 import { toast } from 'sonner';
 import {
-  employees as initialEmployees,
-  patients as initialPatients,
-  appointments as initialAppointments,
   services as initialServices,
   workCenters,
   type Employee,
@@ -34,7 +31,9 @@ import { BlockSchedule } from '../../../modules/appointments/components/BlockSch
 export function AdminDashboard() {
   const [employees, setEmployees] = useState<BackendEmployee[]>([]);
   const [patients, setPatients] = useState<BackendPatient[]>([]);
-  const [appointments, setAppointments] = useState(initialAppointments);
+  const [appointments, setAppointments] = useState<BackendAppointment[]>([]);
+  const [payments, setPayments] = useState<BackendPayment[]>([]);
+  const [paymentPartials, setPaymentPartials] = useState<BackendPaymentPartial[]>([]);
   const [services, setServices] = useState<Service[]>(initialServices);
   const [isCreateEmployeeDialogOpen, setIsCreateEmployeeDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -64,6 +63,45 @@ export function AdminDashboard() {
       }
     };
     loadPatients();
+  }, []);
+
+  // Load appointments from API
+  useEffect(() => {
+    const loadAppointments = async () => {
+      try {
+        const data = await apiClient.get<BackendAppointment[]>('/appointments/', true);
+        setAppointments(Array.isArray(data) ? data : []);
+      } catch (e) {
+        console.error('Error loading appointments:', e);
+      }
+    };
+    loadAppointments();
+  }, []);
+
+  // Load payments from API
+  useEffect(() => {
+    const loadPayments = async () => {
+      try {
+        const data = await apiClient.get<BackendPayment[]>('/payments/', true);
+        setPayments(Array.isArray(data) ? data : []);
+      } catch (e) {
+        console.error('Error loading payments:', e);
+      }
+    };
+    loadPayments();
+  }, []);
+
+  // Load payment partials from API
+  useEffect(() => {
+    const loadPartials = async () => {
+      try {
+        const data = await apiClient.get<BackendPaymentPartial[]>('/payments/abonos/all', true);
+        setPaymentPartials(Array.isArray(data) ? data : []);
+      } catch (e) {
+        console.error('Error loading payment partials:', e);
+      }
+    };
+    loadPartials();
   }, []);
 
   // Patient states
@@ -189,8 +227,8 @@ export function AdminDashboard() {
   };
 
   const roleToFilter = {
-    'admin': 1,
-    'receptionist': 2,
+    'admin': 2,
+    'receptionist': 4,
     'doctor': 3,
   };
   
@@ -198,13 +236,16 @@ export function AdminDashboard() {
     (emp) => filterRole === 'all' || emp.usuario_rol_id === roleToFilter[filterRole as keyof typeof roleToFilter]
   );
 
-  const handleCancelAppointment = (id: string) => {
-    setAppointments(
-      appointments.map((apt) =>
-        apt.id === id ? { ...apt, status: 'cancelled' as const } : apt
-      )
-    );
-    toast.success('Cita cancelada');
+  const handleCancelAppointment = async (id: number) => {
+    try {
+      await apiClient.put(`/appointments/${id}`, { estado_cita_id: 4 }, true);
+      setAppointments(appointments.map((apt) =>
+        apt.id === id ? { ...apt, estado_cita_id: 4 } : apt
+      ));
+      toast.success('Cita cancelada exitosamente');
+    } catch {
+      toast.error('Error al cancelar la cita');
+    }
   };
 
   const handleCreatePatient = () => {
@@ -267,7 +308,7 @@ export function AdminDashboard() {
         <Card className="border-sky-200">
           <CardHeader className="pb-2">
             <CardDescription>Empleados Activos</CardDescription>
-            <CardTitle className="text-3xl text-sky-600">{employees.filter((e) => e.status === 'active').length}</CardTitle>
+            <CardTitle className="text-3xl text-sky-600">{employees.filter((e) => e.activo).length}</CardTitle>
           </CardHeader>
         </Card>
         <Card className="border-sky-200">
@@ -279,13 +320,13 @@ export function AdminDashboard() {
         <Card className="border-sky-200">
           <CardHeader className="pb-2">
             <CardDescription>Citas Activas</CardDescription>
-            <CardTitle className="text-3xl text-sky-600">{appointments.filter((a) => a.status !== 'cancelled').length}</CardTitle>
+            <CardTitle className="text-3xl text-sky-600">{appointments.filter((a) => a.estado_cita_id !== 4).length}</CardTitle>
           </CardHeader>
         </Card>
         <Card className="border-sky-200">
           <CardHeader className="pb-2">
             <CardDescription>Citas Completadas</CardDescription>
-            <CardTitle className="text-3xl text-sky-600">{appointments.filter((a) => a.status === 'completed').length}</CardTitle>
+            <CardTitle className="text-3xl text-sky-600">{appointments.filter((a) => a.estado_cita_id === 3).length}</CardTitle>
           </CardHeader>
         </Card>
       </div>
@@ -522,7 +563,7 @@ export function AdminDashboard() {
                                 : 'border-red-300 text-red-600 hover:bg-red-50'
                             }
                           >
-                            {employee.status === 'active' ? 'Activo' : 'Inactivo'}
+                            {employee.activo ? 'Activo' : 'Inactivo'}
                           </Button>
                         </TableCell>
                         <TableCell>
@@ -838,40 +879,30 @@ export function AdminDashboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {appointments.map((appointment) => (
+                    {appointments.map((appointment) => {
+                      const hour = appointment.fecha_hora
+                        ? new Date(appointment.fecha_hora).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+                        : '--:--';
+                      const statusText = appointment.estado_cita_id === 2 ? 'Confirmada' : appointment.estado_cita_id === 4 ? 'Cancelada' : appointment.estado_cita_id === 3 ? 'Completada' : 'Programada';
+                      const statusClass = appointment.estado_cita_id === 2 ? 'bg-green-100 text-green-700' : appointment.estado_cita_id === 4 ? 'bg-red-100 text-red-700' : appointment.estado_cita_id === 3 ? 'bg-gray-100 text-gray-700' : 'bg-yellow-100 text-yellow-700';
+                      return (
                       <TableRow key={appointment.id}>
                         <TableCell>
-                          {new Date(appointment.date).toLocaleDateString('es-MX')}
+                          {appointment.fecha ? new Date(appointment.fecha).toLocaleDateString('es-MX') : ''}
                         </TableCell>
-                        <TableCell>{appointment.time}</TableCell>
-                        <TableCell>{appointment.patientName}</TableCell>
-                        <TableCell>{appointment.serviceName}</TableCell>
-                        <TableCell>{appointment.doctorName || 'Sin asignar'}</TableCell>
-                        <TableCell>{appointment.workCenterName}</TableCell>
+                        <TableCell>{hour}</TableCell>
+                        <TableCell>{appointment.paciente_nombre || ''}</TableCell>
+                        <TableCell>{appointment.servicio_nombre || ''}</TableCell>
+                        <TableCell>{appointment.empleado_nombre || 'Sin asignar'}</TableCell>
+                        <TableCell>{appointment.sucursal_nombre || ''}</TableCell>
                         <TableCell>
-                          <div
-                            className={`inline-block px-2 py-1 rounded-full text-xs ${
-                              appointment.status === 'confirmed'
-                                ? 'bg-green-100 text-green-700'
-                                : appointment.status === 'cancelled'
-                                ? 'bg-red-100 text-red-700'
-                                : appointment.status === 'completed'
-                                ? 'bg-gray-100 text-gray-700'
-                                : 'bg-yellow-100 text-yellow-700'
-                            }`}
-                          >
-                            {appointment.status === 'confirmed'
-                              ? 'Confirmada'
-                              : appointment.status === 'cancelled'
-                              ? 'Cancelada'
-                              : appointment.status === 'completed'
-                              ? 'Completada'
-                              : 'Programada'}
+                          <div className={`inline-block px-2 py-1 rounded-full text-xs ${statusClass}`}>
+                            {statusText}
                           </div>
                         </TableCell>
                         <TableCell>
-                          {appointment.status !== 'cancelled' &&
-                            appointment.status !== 'completed' && (
+                          {appointment.estado_cita_id !== 4 &&
+                            appointment.estado_cita_id !== 3 && (
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -883,7 +914,8 @@ export function AdminDashboard() {
                             )}
                         </TableCell>
                       </TableRow>
-                    ))}
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
@@ -894,9 +926,9 @@ export function AdminDashboard() {
         {/* Reports Tab */}
         <TabsContent value="reports" className="space-y-4">
           <ReportsSection
-            employees={employees}
-            patients={patients}
             appointments={appointments}
+            payments={payments}
+            paymentPartials={paymentPartials}
           />
         </TabsContent>
       </Tabs>

@@ -214,6 +214,35 @@ export interface BackendPatient {
   usuario_telefono?: string;
 }
 
+export interface BackendPaymentPartial {
+  id: number;
+  pago_id: number;
+  cita_id: number;
+  monto: number;
+  metodo_pago?: string;
+  fecha_pago?: string;
+  numero_recibo?: string;
+  servicio_nombre?: string;
+}
+
+export interface BackendPayment {
+  id: number;
+  cita_id: number;
+  paciente_id: number;
+  monto_total: number;
+  monto_pagado: number;
+  monto_restante: number;
+  estado: string;
+  metodo_pago?: string;
+  numero_recibo?: string;
+  fecha_pago?: string;
+  activo: boolean;
+  fecha_creacion: string;
+  fecha_actualizacion: string;
+  cita_fecha?: string;
+  paciente_nombre?: string;
+}
+
 export interface BackendCatalogItem {
   id: number;
   nombre: string;

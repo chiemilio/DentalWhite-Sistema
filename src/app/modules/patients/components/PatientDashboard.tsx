@@ -39,16 +39,20 @@ export function PatientDashboard() {
 
   // Map backend appointment to frontend format
   const mapAppointment = (backendAppt: BackendAppointment): Appointment => {
-    // Usar fecha directa del backend o extraer de fecha_hora
-    let date = backendAppt.fecha;
+    let date = '';
     let time = '';
     
     if (backendAppt.fecha_hora) {
-      const fechaHora = new Date(backendAppt.fecha_hora);
-      if (!date) {
-        date = fechaHora.toISOString().split('T')[0];
-      }
-      time = fechaHora.toTimeString().split(' ')[0].substring(0, 5);
+      const raw = backendAppt.fecha_hora;
+      const d = typeof raw === 'string' ? new Date(raw) : raw;
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      date = `${y}-${m}-${day}`;
+      time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    } else if (backendAppt.fecha) {
+      const [y, m, d] = backendAppt.fecha.split('-').map(Number);
+      date = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     }
     
     // Map status
@@ -339,11 +343,13 @@ export function PatientDashboard() {
     }
   };
 
+  const todayLocal = new Date();
+  const todayStr = `${todayLocal.getFullYear()}-${String(todayLocal.getMonth() + 1).padStart(2, '0')}-${String(todayLocal.getDate()).padStart(2, '0')}`;
   const upcomingAppointments = appointments.filter(
-    (apt) => apt.status !== 'cancelled' && new Date(apt.date) >= new Date()
+    (apt) => apt.status !== 'cancelled' && apt.date >= todayStr
   );
   const pastAppointments = appointments.filter(
-    (apt) => apt.status === 'completed' || new Date(apt.date) < new Date()
+    (apt) => apt.status === 'completed' || apt.date < todayStr
   );
 
   if (isLoading) {
@@ -436,7 +442,7 @@ export function PatientDashboard() {
                   onChange={(e) =>
                     setNewAppointment({ ...newAppointment, date: e.target.value, time: '' })
                   }
-                  min={new Date().toISOString().split('T')[0]}
+                  min={new Date().toLocaleDateString('en-CA')}
                   disabled={!newAppointment.workCenterId}
                 />
                 {newAppointment.date && isDayBlocked(newAppointment.date) && (
@@ -548,12 +554,7 @@ export function PatientDashboard() {
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 text-gray-700">
                       <Calendar className="text-sky-500" size={16} />
-                      <span>{new Date(appointment.date).toLocaleDateString('es-MX', {
-                        weekday: 'long',
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                      })}</span>
+                      <span>{(() => { const [a,b,c] = appointment.date.split('-').map(Number); return new Date(a,b-1,c).toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }); })()}</span>
                     </div>
                     <div className="flex items-center gap-2 text-gray-700">
                       <Clock className="text-sky-500" size={16} />
@@ -602,7 +603,7 @@ export function PatientDashboard() {
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 text-gray-700">
                       <Calendar className="text-sky-500" size={16} />
-                      <span>{new Date(appointment.date).toLocaleDateString('es-MX')}</span>
+                      <span>{(() => { const [a,b,c] = appointment.date.split('-').map(Number); return new Date(a,b-1,c).toLocaleDateString('es-MX'); })()}</span>
                     </div>
                     <div className="flex items-center gap-2 text-gray-700">
                       <MapPin className="text-sky-500" size={16} />

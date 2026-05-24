@@ -46,6 +46,7 @@ class EmployeeResponse(EmployeeBase):
 
     id: int
     usuario_id: int
+    activo: bool = True
     fecha_creacion: datetime
     fecha_actualizacion: datetime
 
@@ -108,6 +109,7 @@ class EmployeeResponse(EmployeeBase):
         return cls(
             id=employee.id,
             usuario_id=employee.usuario_id,
+            activo=employee.activo,
             numero_empleado=employee.numero_empleado,
             fecha_ingreso=fecha_ingreso,
             cedula_profesional=employee.cedula_profesional,

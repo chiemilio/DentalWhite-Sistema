@@ -18,19 +18,96 @@ router = APIRouter()
 
 @router.post("/login", response_model=LoginResponse)
 def login(login_data: LoginRequest, db: Session = Depends(get_db)):
-    """
-    Login de usuario - Retorna JWT token
-    """
-    # Buscar usuario por email
+    print(f"LOGIN_DEBUG: email='{login_data.email}' pw_len={len(login_data.password)}", flush=True)
     user = db.query(User).filter(User.email == login_data.email).first()
     
-    # Verificar que exista y la contraseña sea correcta
+    if not user or not verify_password(login_data.password, user.password_hash):
+        print(f"LOGIN_DEBUG FAILED: email='{login_data.email}' user_found={user is not None}", flush=True)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Email o contraseña incorrectos",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    if not user.activo:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Usuario inactivo"
+        )
+    
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": str(user.id)},
+        expires_delta=access_token_expires
+    )
+    
+    role_mapping = {
+        "Admin": "admin",
+        "Recepcionista": "receptionist",
+        "Doctor": "doctor",
+        "Paciente": "patient",
+    }
+    
+    rol_nombre = user.rol.nombre if user.rol else "Paciente"
+    frontend_role = role_mapping.get(rol_nombre, "patient")
+    
+    return LoginResponse(
+        access_token=access_token,
+        token_type="bearer",
+        user={
+            "id": user.id,
+            "email": user.email,
+            "role": frontend_role,
+            "name": f"{user.nombre} {user.apellido_paterno}".strip(),
+            "workCenter": None,
+            "specialty": None,
+        }
+    )
+
+
+@router.post("/login/", response_model=LoginResponse)
+def login_slash(login_data: LoginRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == login_data.email).first()
+    
     if not user or not verify_password(login_data.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Email o contraseña incorrectos",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    
+    if not user.activo:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Usuario inactivo"
+        )
+    
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": str(user.id)},
+        expires_delta=access_token_expires
+    )
+    
+    role_mapping = {
+        "Admin": "admin",
+        "Recepcionista": "receptionist",
+        "Doctor": "doctor",
+        "Paciente": "patient",
+    }
+    role_english = role_mapping.get(user.rol.nombre, "patient") if user.rol else "patient"
+    
+    return LoginResponse(
+        access_token=access_token,
+        token_type="bearer",
+        user=UserLoginInfo(
+            id=user.id,
+            email=user.email,
+            role=role_english,
+            name=f"{user.nombre} {user.apellido_paterno}",
+            workCenter=None,
+            specialty=None,
+        )
+    )
     
     # Verificar que el usuario esté activo
     if not user.activo:
@@ -99,8 +176,58 @@ def login_slash(login_data: LoginRequest, db: Session = Depends(get_db)):
         expires_delta=access_token_expires
     )
     
-    # Retornar token y datos del usuario en formato esperado por frontend
-    # Mapear roles de español a inglés
+    role_mapping = {
+        "Admin": "admin",
+        "Recepcionista": "receptionist",
+        "Doctor": "doctor",
+        "Paciente": "patient",
+    }
+    
+    rol_nombre = user.rol.nombre if user.rol else "Paciente"
+    frontend_role = role_mapping.get(rol_nombre, "patient")
+    
+    print(f"LOGIN_DEBUG SUCCESS: email='{login_data.email}' role={frontend_role}", flush=True)
+    
+    return LoginResponse(
+        access_token=access_token,
+        token_type="bearer",
+        user={
+            "id": user.id,
+            "email": user.email,
+            "role": frontend_role,
+            "name": f"{user.nombre} {user.apellido_paterno}".strip(),
+            "workCenter": None,
+            "specialty": None,
+        }
+    )
+
+
+@router.post("/login/", response_model=LoginResponse)
+def login_slash(login_data: LoginRequest, db: Session = Depends(get_db)):
+    print(f"LOGIN_DEBUG slash: email='{login_data.email}'", flush=True)
+    user = db.query(User).filter(User.email == login_data.email).first()
+    
+    if not user or not verify_password(login_data.password, user.password_hash):
+        print(f"LOGIN_DEBUG slash FAILED: email='{login_data.email}'", flush=True)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Email o contraseña incorrectos",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    if not user.activo:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Usuario inactivo"
+        )
+    
+    # Crear access token
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": str(user.id)},
+        expires_delta=access_token_expires
+    )
+    
     role_mapping = {
         "Admin": "admin",
         "Recepcionista": "receptionist",

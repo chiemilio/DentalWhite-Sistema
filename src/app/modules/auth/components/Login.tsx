@@ -110,7 +110,7 @@ export function Login({ onBack, onRegisterClick }: LoginProps) {
               <p>• Admin: admin@dentalwhite.com / admin123</p>
               <p>• Recepción: recepcion@dentalwhite.com / recep123</p>
               <p>• Doctor: doctor@dentalwhite.com / doctor123</p>
-              <p>• Paciente: paciente@example.com / paciente123</p>
+              <p>• Paciente: paciente@dentalwhite.com / paciente123</p>
             </div>
           </div>
         </CardContent>
