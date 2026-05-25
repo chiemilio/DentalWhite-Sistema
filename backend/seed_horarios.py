@@ -1,7 +1,8 @@
-from app.database import SessionLocal
+from app.database import engine, Base, SessionLocal
 from app.models.catalogos import Horario
 from datetime import time
 
+Base.metadata.create_all(bind=engine)
 db = SessionLocal()
 try:
     existing = db.query(Horario).filter(Horario.sucursal_id == 1).count()

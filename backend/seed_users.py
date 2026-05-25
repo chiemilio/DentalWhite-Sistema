@@ -7,12 +7,13 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(__file__))
 
-from app.database import SessionLocal
+from app.database import engine, Base, SessionLocal
 from app.models.user import User
 from app.core.security import get_password_hash
 from app.models.catalogos import Rol
 
 def seed_users():
+    Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:
         roles = {r.nombre: r.id for r in db.query(Rol).all()}

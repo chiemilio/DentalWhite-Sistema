@@ -7,4 +7,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY backend/ .
 
-CMD python seed_users.py && python seed_horarios.py && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+CMD python seed_catalogs.py && python seed_users.py && python seed_horarios.py && uvicorn app.main:app --host 0.0.0.0 --port $PORT
