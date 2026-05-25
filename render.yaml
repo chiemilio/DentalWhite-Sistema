@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: dental-white-api
+    runtime: python
+    region: ohio
+    plan: free
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: bash backend/start.sh
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: CORS_ORIGINS
+        value: PONER_AQUI_TU_URL_DE_VERCEL
+      - key: ENVIRONMENT
+        value: production
+      - key: SECRET_KEY
+        sync: false
+      - key: ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: 10080
+      - key: API_V1_PREFIX
+        value: /api/v1
+      - key: PROJECT_NAME
+        value: "Dental White API"
+      - key: VERSION
+        value: "3.0.0"
+      - key: LOG_LEVEL
+        value: INFO

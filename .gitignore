@@ -16,6 +16,8 @@ backend/gen_*.py
 backend/gen_*.sh
 backend/reset_*.py
 backend/seed_*.py
+!backend/seed_users.py
+!backend/seed_horarios.py
 backend/test_*.py
 backend/check*.py
 backend/fix*.py
