@@ -26,3 +26,5 @@ backend/debug*.py
 backend/validate*.py
 backend/list_*.py
 backend/get_*.py
+.vercel
+.env*
