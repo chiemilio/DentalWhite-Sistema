@@ -10,6 +10,7 @@ __pycache__/
 .env.local
 *.log
 .DS_Store
+test_*.py
 Thumbs.db
 backend/cookies.txt
 backend/gen_*.py
