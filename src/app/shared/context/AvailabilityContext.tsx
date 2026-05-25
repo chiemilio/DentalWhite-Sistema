@@ -1,7 +1,6 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, type ReactNode } from  'react';
 import { apiClient } from '../utils/api';
-
-// Tipos de datos del backend
+ // Tipos de datos del backend
 interface BackendBloqueo {
   id: number;
   sucursal_id: number | null;
@@ -48,7 +47,7 @@ interface AvailabilityContextType {
   isTimeSlotBlocked: (date: string, time: string, branch: string) => boolean;
   getAvailableTimeSlots: (date: string, branch: string) => string[];
   isDaySaturated: (date: string, branch: string) => boolean;
-  checkDisponibilidad: (fecha: string, hora: string, sucursalId?: number, empleadoId?: number) => Promise<boolean>;
+  checkDisponibilidad: (fecha: string, hora: string, sucursalId?: number, empleadoId?: number) => Promise<{ disponible: boolean; mensaje: string }>;
 }
 
 const AvailabilityContext = createContext<AvailabilityContextType | undefined>(undefined);
@@ -69,19 +68,22 @@ export function AvailabilityProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
 
   // Cargar horarios del catálogo al inicio
-  useEffect(() => {
-    const loadCatalogHorarios = async () => {
-      try {
-        const response = await apiClient.get<BackendHorario[]>('/catalogos/horarios', false);
-        if (response && Array.isArray(response)) {
-          setCatalogHorarios(response);
-        }
-      } catch (error) {
-        console.error('Error loading catalog horarios:', error);
-      }
-    };
-    loadCatalogHorarios();
-  }, []);
+
+useEffect(() => { const loadCatalogHorarios = async () => { try {
+  const response = await apiClient.get<BackendHorario[]>('/catalogos/horarios', false);
+  if (Array.isArray(response) && response.length > 0) {
+    setCatalogHorarios(response);
+  } else {
+    setCatalogHorarios([]);
+  }
+  } catch (error) { 
+    console.error('Error loading catalog horarios:', error);
+    setCatalogHorarios([]);
+  } 
+}; 
+
+loadCatalogHorarios();
+}, []);
 
   const [blockedTimeSlots, setBlockedTimeSlots] = useState<BlockedTimeSlot[]>([]);
 
