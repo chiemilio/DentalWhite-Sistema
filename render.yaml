@@ -1,11 +1,9 @@
 services:
   - type: web
     name: dental-white-api
-    runtime: python
+    runtime: docker
     region: ohio
     plan: free
-    buildCommand: pip install -r requirements.txt
-    startCommand: bash backend/start.sh
     envVars:
       - key: DATABASE_URL
         sync: false
