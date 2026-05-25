@@ -29,7 +29,23 @@ Dockerfile
 *.md
 !README.md
 
-# Backend
-backend
+# Backend - excluir solo basura (mantener código fuente)
+backend/venv
+backend/.venv
+backend/__pycache__
+backend/*.pyc
+backend/check*.py
+backend/fix*.py
+backend/debug*.py
+backend/create_*.py
+backend/validate*.py
+backend/list_*.py
+backend/get_*.py
+backend/tmp_*.py
+backend/.env
+backend/cookies.txt
+backend/*.json
+
+# Virtual envs en raíz
 venv
 .venv
