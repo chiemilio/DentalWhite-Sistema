@@ -24,11 +24,8 @@ app = FastAPI(
     redirect_slashes=False
 )
 
-# Configurar CORS - Permitir múltiples orígenes
-# Leer de variable de entorno o usar defaults
-import os
-cors_origins_str = os.getenv('CORS_ORIGINS', 'http://localhost,http://localhost:80,http://localhost:5173')
-cors_origins = [origin.strip() for origin in cors_origins_str.split(',')]
+# CORS desde settings (lee env var CORS_ORIGINS con fallback a defaults)
+cors_origins = settings.cors_origins_list
 
 app.add_middleware(
     CORSMiddleware,

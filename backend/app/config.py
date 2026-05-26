@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080  # 7 días
 
     # CORS
-    CORS_ORIGINS: str = "http://localhost,http://localhost:80,http://localhost:3000,http://127.0.0.1,http://127.0.0.1:80,http://127.0.0.1:3000"
+    CORS_ORIGINS: str = "http://localhost,http://localhost:80,http://localhost:3000,http://127.0.0.1,http://127.0.0.1:80,http://127.0.0.1:3000,https://deltawhitetest.vercel.app"
 
     # API
     API_V1_PREFIX: str = "/api/v1"
