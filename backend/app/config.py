@@ -9,10 +9,10 @@ class Settings(BaseSettings):
     """Configuración de la aplicación"""
 
     # Database
-    DATABASE_URL: str
+    DATABASE_URL: str = "postgresql://localhost:5432/dental_white"
 
     # Security
-    SECRET_KEY: str
+    SECRET_KEY: str = "super_secret_key_123456789012345678901234567890"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080  # 7 días
 
@@ -31,7 +31,6 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
 
     model_config = SettingsConfigDict(
-        env_file=".env",
         case_sensitive=True
     )
 
