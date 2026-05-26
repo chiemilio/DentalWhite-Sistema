@@ -549,7 +549,11 @@ export function ReceptionistDashboard() {
                 }
                 try {
                   setIsSearching(true);
+                  const apiUrl = import.meta.env.VITE_API_URL || '/api/v1';
+                  console.log('[Search] VITE_API_URL:', apiUrl);
+                  console.log('[Search] Calling:', `/patients/search/?q=${encodeURIComponent(searchTerm)}`);
                   const data = await apiClient.get<BackendPatient[]>(`/patients/search/?q=${encodeURIComponent(searchTerm)}`, true);
+                  console.log('[Search] Response:', data);
                   const results = Array.isArray(data) ? data : [];
                   if (results.length === 0) {
                     toast.info('No se encontraron pacientes');
@@ -558,7 +562,9 @@ export function ReceptionistDashboard() {
                   }
                   setSearchResults(results);
                 } catch(error) {
-                  toast.error('Error al buscar pacientes');
+                  console.error('[Search] Error:', error);
+                  const apiUrl = import.meta.env.VITE_API_URL || '/api/v1';
+                  toast.error(`Error al buscar pacientes (API: ${apiUrl})`);
                   setSearchResults([]);
                 } finally {
                   setIsSearching(false);
