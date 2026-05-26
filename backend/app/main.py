@@ -26,6 +26,10 @@ app = FastAPI(
 
 # CORS desde settings (lee env var CORS_ORIGINS con fallback a defaults)
 cors_origins = settings.cors_origins_list
+# Siempre incluir el dominio de Vercel (fallback por si env var está mal)
+vercel_url = "https://deltawhitetest.vercel.app"
+if vercel_url not in cors_origins:
+    cors_origins.append(vercel_url)
 
 app.add_middleware(
     CORSMiddleware,
