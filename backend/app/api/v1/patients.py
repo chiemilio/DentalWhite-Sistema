@@ -52,7 +52,7 @@ def search_patients(
         .options(joinedload(Patient.usuario))
         .filter(
             and_(
-                User.rol_id == 4,  # Only patients
+                User.rol_id == 5,  # Only patients
                 or_(
                     User.nombre.ilike(search_term),
                     User.apellido_paterno.ilike(search_term),
@@ -135,7 +135,7 @@ def create_patient(
         email=email,
         telefono_principal=patient_data.telefono,
         password_hash=get_password_hash(temp_password),
-        rol_id=4,  # Rol Paciente (id=4)
+        rol_id=5,  # Rol Paciente
         activo=True
     )
     db.add(db_user)
