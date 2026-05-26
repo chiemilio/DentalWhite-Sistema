@@ -272,7 +272,7 @@ def register(user_data: UserRegisterRequest, db: Session = Depends(get_db)):
         apellido_paterno=user_data.apellido_paterno or '',
         apellido_materno=user_data.apellido_materno,
         telefono_principal=user_data.telefono,
-        rol_id=4,
+        rol_id=5,
         activo=True
     )
 
@@ -280,14 +280,13 @@ def register(user_data: UserRegisterRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_user)
     
-    if db_user.rol_id == 4:
-        db_patient = Patient(
-            usuario_id=db_user.id,
-            fecha_nacimiento=date(1990, 1, 1),
-            activo=True
-        )
-        db.add(db_patient)
-        db.commit()
+    db_patient = Patient(
+        usuario_id=db_user.id,
+        fecha_nacimiento=date(1990, 1, 1),
+        activo=True
+    )
+    db.add(db_patient)
+    db.commit()
     
     return UserResponse.from_orm_with_relations(db_user)
 
@@ -314,7 +313,7 @@ def register_slash(user_data: UserRegisterRequest, db: Session = Depends(get_db)
         apellido_paterno=user_data.apellido_paterno or '',
         apellido_materno=user_data.apellido_materno,
         telefono_principal=user_data.telefono,
-        rol_id=4,
+        rol_id=5,
         activo=True
     )
 
@@ -322,15 +321,13 @@ def register_slash(user_data: UserRegisterRequest, db: Session = Depends(get_db)
     db.commit()
     db.refresh(db_user)
     
-    # Crear registro en tabla pacientes si es paciente (rol_id = 4)
-    if db_user.rol_id == 4:
-        db_patient = Patient(
-            usuario_id=db_user.id,
-            fecha_nacimiento=date(1990, 1, 1),
-            activo=True
-        )
-        db.add(db_patient)
-        db.commit()
+    db_patient = Patient(
+        usuario_id=db_user.id,
+        fecha_nacimiento=date(1990, 1, 1),
+        activo=True
+    )
+    db.add(db_patient)
+    db.commit()
     
     return UserResponse.from_orm_with_relations(db_user)
 
