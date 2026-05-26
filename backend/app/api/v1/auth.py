@@ -280,8 +280,21 @@ def register(user_data: UserRegisterRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_user)
     
+    # Generar numero_expediente
+    last_patient = db.query(Patient).order_by(Patient.id.desc()).first()
+    if last_patient and last_patient.numero_expediente:
+        try:
+            last_num = int(last_patient.numero_expediente.split("-")[1])
+        except (ValueError, IndexError):
+            last_num = 0
+        next_number = last_num + 1
+    else:
+        next_number = 1
+    numero_expediente = f"PAC-{next_number:06d}"
+    
     db_patient = Patient(
         usuario_id=db_user.id,
+        numero_expediente=numero_expediente,
         fecha_nacimiento=date(1990, 1, 1),
         activo=True
     )
@@ -321,8 +334,21 @@ def register_slash(user_data: UserRegisterRequest, db: Session = Depends(get_db)
     db.commit()
     db.refresh(db_user)
     
+    # Generar numero_expediente
+    last_patient = db.query(Patient).order_by(Patient.id.desc()).first()
+    if last_patient and last_patient.numero_expediente:
+        try:
+            last_num = int(last_patient.numero_expediente.split("-")[1])
+        except (ValueError, IndexError):
+            last_num = 0
+        next_number = last_num + 1
+    else:
+        next_number = 1
+    numero_expediente = f"PAC-{next_number:06d}"
+    
     db_patient = Patient(
         usuario_id=db_user.id,
+        numero_expediente=numero_expediente,
         fecha_nacimiento=date(1990, 1, 1),
         activo=True
     )

@@ -79,17 +79,33 @@ app.include_router(api_router)
 # Exception handlers
 @app.exception_handler(404)
 async def not_found_handler(request, exc):
+    origin = request.headers.get("origin", "")
+    cors_headers = {}
+    if origin:
+        cors_headers["Access-Control-Allow-Origin"] = origin
+        cors_headers["Access-Control-Allow-Credentials"] = "true"
+        cors_headers["Access-Control-Allow-Methods"] = "DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT"
+        cors_headers["Access-Control-Allow-Headers"] = "*"
     return JSONResponse(
         content={"detail": "Recurso no encontrado"},
-        status_code=404
+        status_code=404,
+        headers=cors_headers
     )
 
 
 @app.exception_handler(500)
 async def internal_error_handler(request, exc):
+    origin = request.headers.get("origin", "")
+    cors_headers = {}
+    if origin:
+        cors_headers["Access-Control-Allow-Origin"] = origin
+        cors_headers["Access-Control-Allow-Credentials"] = "true"
+        cors_headers["Access-Control-Allow-Methods"] = "DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT"
+        cors_headers["Access-Control-Allow-Headers"] = "*"
     return JSONResponse(
         content={"detail": "Error interno del servidor"},
-        status_code=500
+        status_code=500,
+        headers=cors_headers
     )
 
 
