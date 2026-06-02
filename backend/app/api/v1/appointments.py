@@ -235,7 +235,7 @@ def create_appointment(
     """
     Crea una nueva cita
     """
-    from datetime import datetime
+    from datetime import datetime, date
     from app.models.patient import Patient
     
     # Get patient ID - accept either user ID or patient ID
@@ -244,10 +244,30 @@ def create_appointment(
         (Patient.id == appointment_data.paciente_id)
     ).first()
     if not paciente_db:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="El paciente no existe en el sistema"
-        )
+        # Auto-create Patient record if the current user is a patient scheduling for themselves
+        if current_user.rol.nombre == "Paciente" and current_user.id == appointment_data.paciente_id:
+            last_patient = db.query(Patient).order_by(Patient.id.desc()).first()
+            if last_patient and last_patient.numero_expediente:
+                try:
+                    next_num = int(last_patient.numero_expediente.split("-")[1]) + 1
+                except (ValueError, IndexError):
+                    next_num = 1
+            else:
+                next_num = 1
+            paciente_db = Patient(
+                usuario_id=current_user.id,
+                tipo_paciente_id=1,
+                numero_expediente=f"PAC-{next_num:06d}",
+                fecha_nacimiento=date(1990, 1, 1),
+                activo=True
+            )
+            db.add(paciente_db)
+            db.flush()
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="El paciente no existe en el sistema"
+            )
     
     # Buscar empleado - puede ser employee.id o employee.usuario_id
     empleado_db = db.query(Employee).filter(
