@@ -144,14 +144,21 @@ def create_patient(
     
     # Generar número de expediente
     last_patient = db.query(Patient).order_by(Patient.id.desc()).first()
-    next_number = 1 if not last_patient else int(last_patient.numero_expediente.split("-")[1]) + 1
+    next_number = 1
+    if last_patient and last_patient.numero_expediente:
+        try:
+            parts = last_patient.numero_expediente.split("-")
+            if len(parts) == 2 and parts[1].isdigit():
+                next_number = int(parts[1]) + 1
+        except (ValueError, IndexError):
+            next_number = 1
     numero_expediente = f"PAC-{next_number:06d}"
     
     # Crear paciente
     db_patient = Patient(
         usuario_id=db_user.id,
-        tipo_paciente_id=patient_data.tipo_paciente_id,
-        sucursal_id=patient_data.sucursal_id or 2,  # Sucursal Principal por defecto
+        tipo_paciente_id=patient_data.tipo_paciente_id or 1,
+        sucursal_id=patient_data.sucursal_id or 2,
         numero_expediente=numero_expediente,
         fecha_nacimiento=patient_data.fecha_nacimiento,
         sexo=patient_data.sexo

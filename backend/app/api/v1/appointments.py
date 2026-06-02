@@ -67,13 +67,14 @@ def register_and_appointment(
         
         # Create patient
         last_patient = db.query(Patient).order_by(Patient.id.desc()).first()
+        next_num = 1
         if last_patient and last_patient.numero_expediente:
             try:
-                next_num = int(last_patient.numero_expediente.split("-")[1]) + 1
-            except:
+                parts = last_patient.numero_expediente.split("-")
+                if len(parts) == 2 and parts[1].isdigit():
+                    next_num = int(parts[1]) + 1
+            except (ValueError, IndexError):
                 next_num = 1
-        else:
-            next_num = 1
         
         db_patient = Patient(
             usuario_id=db_user.id,
@@ -247,13 +248,14 @@ def create_appointment(
         # Auto-create Patient record if the current user is a patient scheduling for themselves
         if current_user.rol.nombre == "Paciente" and current_user.id == appointment_data.paciente_id:
             last_patient = db.query(Patient).order_by(Patient.id.desc()).first()
+            next_num = 1
             if last_patient and last_patient.numero_expediente:
                 try:
-                    next_num = int(last_patient.numero_expediente.split("-")[1]) + 1
+                    parts = last_patient.numero_expediente.split("-")
+                    if len(parts) == 2 and parts[1].isdigit():
+                        next_num = int(parts[1]) + 1
                 except (ValueError, IndexError):
                     next_num = 1
-            else:
-                next_num = 1
             paciente_db = Patient(
                 usuario_id=current_user.id,
                 tipo_paciente_id=1,

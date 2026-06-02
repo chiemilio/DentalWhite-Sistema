@@ -282,14 +282,14 @@ def register(user_data: UserRegisterRequest, db: Session = Depends(get_db)):
     
     # Generar numero_expediente
     last_patient = db.query(Patient).order_by(Patient.id.desc()).first()
+    next_number = 1
     if last_patient and last_patient.numero_expediente:
         try:
-            last_num = int(last_patient.numero_expediente.split("-")[1])
+            parts = last_patient.numero_expediente.split("-")
+            if len(parts) == 2 and parts[1].isdigit():
+                next_number = int(parts[1]) + 1
         except (ValueError, IndexError):
-            last_num = 0
-        next_number = last_num + 1
-    else:
-        next_number = 1
+            next_number = 1
     numero_expediente = f"PAC-{next_number:06d}"
     
     db_patient = Patient(
@@ -336,14 +336,14 @@ def register_slash(user_data: UserRegisterRequest, db: Session = Depends(get_db)
     
     # Generar numero_expediente
     last_patient = db.query(Patient).order_by(Patient.id.desc()).first()
+    next_number = 1
     if last_patient and last_patient.numero_expediente:
         try:
-            last_num = int(last_patient.numero_expediente.split("-")[1])
+            parts = last_patient.numero_expediente.split("-")
+            if len(parts) == 2 and parts[1].isdigit():
+                next_number = int(parts[1]) + 1
         except (ValueError, IndexError):
-            last_num = 0
-        next_number = last_num + 1
-    else:
-        next_number = 1
+            next_number = 1
     numero_expediente = f"PAC-{next_number:06d}"
     
     db_patient = Patient(
