@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { AuthProvider, useAuth } from './modules/auth/context/AuthContext';
 import { AvailabilityProvider } from './shared/context/AvailabilityContext';
 import { PatientProvider } from './shared/context/PatientContext';
@@ -67,6 +68,7 @@ export default function App() {
         <PatientProvider>
           <AppContent />
           <Toaster position="top-right" />
+          <SpeedInsights />
         </PatientProvider>
       </AvailabilityProvider>
     </AuthProvider>
