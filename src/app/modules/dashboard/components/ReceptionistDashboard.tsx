@@ -63,6 +63,7 @@ export function ReceptionistDashboard() {
   const [availableServices, setAvailableServices] = useState<any[]>([]);
   const [allPatients, setAllPatients] = useState<any[]>([]);
   const [newAppointmentSearch, setNewAppointmentSearch] = useState('');
+  const [showPatientDropdown, setShowPatientDropdown] = useState(false);
   const [availableBranches, setAvailableBranches] = useState<any[]>([]);
 
   // Patient registration dialog state
@@ -797,10 +798,13 @@ export function ReceptionistDashboard() {
                 <Input
                   placeholder="Buscar paciente..."
                   value={newAppointmentSearch}
-                  onChange={(e) => setNewAppointmentSearch(e.target.value)}
+                  onChange={(e) => {
+                    setNewAppointmentSearch(e.target.value);
+                    setShowPatientDropdown(true);
+                  }}
                   className="border-sky-200"
                 />
-                {newAppointmentSearch && (
+                {showPatientDropdown && newAppointmentSearch && (
                   <div className="absolute z-10 w-full mt-1 bg-white border border-sky-200 rounded-md shadow-lg max-h-48 overflow-auto">
                     {allPatients
                       .filter(p => 
@@ -815,6 +819,7 @@ export function ReceptionistDashboard() {
                           onClick={() => {
                             setNewAppointmentData({...newAppointmentData, patientId: p.id.toString()});
                             setNewAppointmentSearch(p.usuario_nombre || '');
+                            setShowPatientDropdown(false);
                           }}
                         >
                           {p.usuario_nombre} {p.usuario_telefono ? `- ${p.usuario_telefono}` : ''}
@@ -899,7 +904,7 @@ export function ReceptionistDashboard() {
                     paciente_id: parseInt(newAppointmentData.patientId),
                     servicio_id: parseInt(newAppointmentData.serviceId),
                     empleado_id: parseInt(newAppointmentData.employeeId),
-                    sucursal_id: 2,
+                    sucursal_id: selectedWorkCenter !== 'all' ? parseInt(selectedWorkCenter) : 1,
                     fecha_hora,
                     estado_cita_id: 1,
                     duracion_minutos: 30,
@@ -909,7 +914,7 @@ export function ReceptionistDashboard() {
                   setIsNewAppointmentOpen(false);
                   setNewAppointmentData({ patientId: '', serviceId: '', date: '', time: '', employeeId: '', notes: '' });
                   const params = new URLSearchParams();
-                  params.append('sucursal_id', '2');
+                  params.append('sucursal_id', selectedWorkCenter !== 'all' ? selectedWorkCenter : '1');
                   if (selectedDate) {
                     params.append('fecha_inicio', `${selectedDate}T00:00:00`);
                     params.append('fecha_fin', `${selectedDate}T23:59:59`);

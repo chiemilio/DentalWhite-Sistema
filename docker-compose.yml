@@ -48,11 +48,11 @@ services:
       dockerfile: Dockerfile
     container_name: dental_white_backend
     environment:
-      DATABASE_URL: postgresql://dental_admin:dental_secret_2026@postgres:5432/dental_white
+      DATABASE_URL: postgresql+psycopg://dental_admin:dental_secret_2026@postgres:5432/dental_white
       SECRET_KEY: dental_jwt_super_secret_key_2026_CHANGE_IN_PRODUCTION_MIN_32_CHARS
       ALGORITHM: HS256
       ACCESS_TOKEN_EXPIRE_MINUTES: 10080
-      CORS_ORIGINS: http://localhost,http://localhost:80,http://localhost:5173
+      CORS_ORIGINS: http://localhost,http://localhost:80,http://localhost:5173,https://dentalwhite,http://dentalwhite
       ENVIRONMENT: development
     ports:
       - "8000:8000"
@@ -76,6 +76,7 @@ services:
     volumes:
       - ./dist:/usr/share/nginx/html:ro
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - /etc/nginx/ssl:/etc/nginx/ssl:ro
     networks:
       - dental_network
     restart: unless-stopped

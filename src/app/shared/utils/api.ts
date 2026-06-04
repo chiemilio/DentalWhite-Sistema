@@ -5,7 +5,7 @@
 
 import { getStoredToken } from './jwt';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://dentalwhite-sistema-4.onrender.com/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
 /**
  * Headers base para las peticiones
