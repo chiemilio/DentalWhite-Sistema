@@ -2,8 +2,10 @@
 FastAPI Application - Dental White
 Sistema de Gestión para Clínica Dental
 """
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
 
 from app.config import settings
@@ -71,6 +73,10 @@ def root():
         status_code=200
     )
 
+
+# Servir archivos subidos (fotos de consultas)
+os.makedirs("/app/uploads", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="/app/uploads"), name="uploads")
 
 # Incluir routers de API v1
 app.include_router(api_router)

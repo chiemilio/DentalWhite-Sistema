@@ -2,17 +2,24 @@
 Endpoints de Consultas
 """
 import logging
+import os
+import uuid
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File, Form
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
 from app.database import get_db
 from app.models.user import User
-from app.models.consultation import Consultation
+from app.models.consultation import Consultation, ConsultationPhoto
 from app.schemas.consultation import ConsultationCreate, ConsultationUpdate, ConsultationResponse
+from app.schemas.consultation_photo import ConsultationPhotoCreate, ConsultationPhotoResponse
 from app.api.deps import get_current_user, require_role
+
+UPLOAD_DIR = "/app/uploads/consultations"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 router = APIRouter()
 
@@ -163,4 +170,76 @@ def delete_consultation(
     db.delete(consultation)
     db.commit()
 
+    return None
+
+
+@router.post("/{consulta_id}/photos/", response_model=ConsultationPhotoResponse, status_code=status.HTTP_201_CREATED)
+async def upload_consultation_photo(
+    consulta_id: int,
+    tipo_foto: str = Form(...),
+    descripcion: str = Form(None),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("Admin", "SuperAdmin", "Doctor"))
+):
+    consultation = db.query(Consultation).filter(Consultation.id == consulta_id).first()
+    if not consultation:
+        raise HTTPException(status_code=404, detail="Consulta no encontrada")
+
+    ext = os.path.splitext(file.filename or ".jpg")[1]
+    filename = f"{uuid.uuid4()}{ext}"
+    filepath = os.path.join(UPLOAD_DIR, filename)
+
+    content = await file.read()
+    with open(filepath, "wb") as f:
+        f.write(content)
+
+    url = f"/uploads/consultations/{filename}"
+
+    db_photo = ConsultationPhoto(
+        consulta_id=consulta_id,
+        servicio_id=None,
+        tipo_foto=tipo_foto,
+        url_foto=url,
+        descripcion=descripcion,
+    )
+    db.add(db_photo)
+    db.commit()
+    db.refresh(db_photo)
+
+    return db_photo
+
+
+@router.get("/{consulta_id}/photos/", response_model=List[ConsultationPhotoResponse])
+def list_consultation_photos(
+    consulta_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("Admin", "SuperAdmin", "Doctor"))
+):
+    consultation = db.query(Consultation).filter(Consultation.id == consulta_id).first()
+    if not consultation:
+        raise HTTPException(status_code=404, detail="Consulta no encontrada")
+    return consultation.fotos
+
+
+@router.delete("/{consulta_id}/photos/{photo_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_consultation_photo(
+    consulta_id: int,
+    photo_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("Admin", "SuperAdmin", "Doctor"))
+):
+    photo = db.query(ConsultationPhoto).filter(
+        ConsultationPhoto.id == photo_id,
+        ConsultationPhoto.consulta_id == consulta_id
+    ).first()
+    if not photo:
+        raise HTTPException(status_code=404, detail="Foto no encontrada")
+
+    filepath = os.path.join(UPLOAD_DIR, os.path.basename(photo.url_foto))
+    if os.path.exists(filepath):
+        os.remove(filepath)
+
+    db.delete(photo)
+    db.commit()
     return None
