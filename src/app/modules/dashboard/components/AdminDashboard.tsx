@@ -162,7 +162,7 @@ export function AdminDashboard() {
         numero_empleado: `EMP-${Date.now()}`,
         puesto: newEmployee.puesto || '',
         cedula_profesional: newEmployee.cedula_profesional,
-        salary: newEmployee.salary,
+        salario: newEmployee.salary,
         especialidad_ids: [],
       }, true);
       

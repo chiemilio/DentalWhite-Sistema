@@ -127,7 +127,7 @@ def create_employee(
 
     # Crear empleado
     db_employee = Employee(
-        usuario_id=employee_data.usuario_id,
+        usuario_id=user.id,
         numero_empleado=employee_data.numero_empleado,
         fecha_contratacion=employee_data.fecha_ingreso,
         cedula_profesional=employee_data.cedula_profesional,
