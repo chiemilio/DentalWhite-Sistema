@@ -104,15 +104,7 @@ export function Login({ onBack, onRegisterClick }: LoginProps) {
             </p>
           </div>
 
-          <div className="mt-6 p-4 bg-sky-50 rounded-lg">
-            <p className="text-sm text-gray-700 mb-2">Usuarios de prueba:</p>
-            <div className="space-y-1 text-xs text-gray-600">
-              <p>• Admin: admin@dentalwhite.com / admin123</p>
-              <p>• Recepción: recepcion@dentalwhite.com / recep123</p>
-              <p>• Doctor: doctor@dentalwhite.com / doctor123</p>
-              <p>• Paciente: paciente@dentalwhite.com / paciente123</p>
-            </div>
-          </div>
+
         </CardContent>
       </Card>
     </div>

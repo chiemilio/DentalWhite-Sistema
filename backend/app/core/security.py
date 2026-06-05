@@ -66,12 +66,6 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
 
 
 def decode_token(token: str) -> Optional[dict]:
-    """
-    Decodifica y verifica un JWT token
-    """
-    import logging
-    logger = logging.getLogger(__name__)
-    
     try:
         payload = jwt.decode(
             token,
@@ -79,8 +73,6 @@ def decode_token(token: str) -> Optional[dict]:
             algorithms=[settings.ALGORITHM],
             audience="dental-white-users"
         )
-        logger.info(f"Token decoded successfully. Payload: {payload}")
         return payload
-    except JWTError as e:
-        logger.error(f"JWT decode error: {e}")
+    except JWTError:
         return None

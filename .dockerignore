@@ -29,6 +29,11 @@ Dockerfile
 *.md
 !README.md
 
+# Secrets
+.env
+.env.local
+.env.*
+
 # Backend - excluir solo basura (mantener código fuente)
 backend/venv
 backend/.venv

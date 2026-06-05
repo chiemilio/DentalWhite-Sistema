@@ -136,7 +136,6 @@ def list_appointments(
     Lista todas las citas con filtros opcionales
     """
     try:
-        # Cargar relaciones necesarias
         query = db.query(Appointment).options(
             joinedload(Appointment.paciente).joinedload(Patient.usuario),
             joinedload(Appointment.empleado).joinedload(Employee.usuario),
@@ -145,7 +144,14 @@ def list_appointments(
             joinedload(Appointment.estado_cita)
         )
 
-        # Aplicar filtros
+        # Ownership: patients only see their own appointments
+        if current_user.rol and current_user.rol.nombre == "Paciente":
+            patient = db.query(Patient).filter(Patient.usuario_id == current_user.id).first()
+            if patient:
+                query = query.filter(Appointment.paciente_id == patient.id)
+            else:
+                query = query.filter(Appointment.paciente_id == 0)
+
         if fecha_inicio:
             query = query.filter(Appointment.fecha >= fecha_inicio.date())
         if fecha_fin:
@@ -172,22 +178,15 @@ def list_appointments(
         
         if empleado_id:
             query = query.filter(Appointment.empleado_id == empleado_id)
-            print(f"DEBUG: Filtrando por empleado_id={empleado_id}")
         if estado_id:
             query = query.filter(Appointment.estado_cita_id == estado_id)
         if sucursal_id:
             query = query.filter(Appointment.sucursal_id == sucursal_id)
 
         appointments = query.order_by(Appointment.fecha.desc(), Appointment.hora.desc()).offset(skip).limit(limit).all()
-        print(f"Total citas: {len(appointments)} - Usuario: {current_user.email}")
-        for apt in appointments:
-            print(f"  Cita {apt.id}: fecha={apt.fecha}, hora={apt.hora}, estado={apt.estado_cita_id}")
         return [AppointmentResponse.from_orm_with_relations(appointment) for appointment in appointments]
     except Exception as e:
-        print(f"Error en list_appointments: {e}")
-        import traceback
-        traceback.print_exc()
-        raise
+        raise HTTPException(status_code=500, detail="Error al listar citas")
 
 
 @router.get("", response_model=List[AppointmentResponse])
@@ -225,6 +224,16 @@ def get_appointment(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Cita no encontrada"
         )
+
+    # Ownership check: patients can only see their own appointments
+    if current_user.rol and current_user.rol.nombre == "Paciente":
+        patient = db.query(Patient).filter(Patient.usuario_id == current_user.id).first()
+        if not patient or appointment.paciente_id != patient.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No tienes permiso para ver esta cita"
+            )
+
     return AppointmentResponse.from_orm_with_relations(appointment)
 
 

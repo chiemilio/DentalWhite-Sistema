@@ -18,25 +18,15 @@ def get_current_user(
     db: Session = Depends(get_db)
 ) -> User:
     """Obtiene el usuario actual desde el token JWT"""
-    import logging
-    logger = logging.getLogger(__name__)
-    
-    # Log the RAW received token
-    raw_token = credentials.credentials if credentials else "NO_CREDENTIALS"
-    logger.error(f"=== get_current_user ===")
-    logger.error(f"RAW token: '{raw_token[:80]}...'" if raw_token and len(raw_token) > 80 else f"RAW token: '{raw_token}'")
-    logger.error(f"Token length: {len(raw_token)}, segments: {raw_token.count('.')}")
-    
+
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail=f"No se pudo validar las credenciales. Token length: {len(raw_token)}, segments: {raw_token.count('.')}",
+        detail="No se pudo validar las credenciales",
         headers={"WWW-Authenticate": "Bearer"},
     )
 
-    # Decodificar token
     payload = decode_token(credentials.credentials)
     if payload is None:
-        logger.error("decode_token returned None")
         raise credentials_exception
 
     # Obtener user_id del payload

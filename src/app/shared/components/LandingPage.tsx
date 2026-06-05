@@ -8,7 +8,7 @@ import {
   CarouselPrevious,
 } from '../ui/carousel';
 import { ImageWithFallback } from './figma/ImageWithFallback';
-import { Calendar, Users, Shield, Phone, Mail, MapPin, MessageCircle, Play, Image as ImageIcon, Facebook } from 'lucide-react';
+import { Calendar, Users, Shield, Phone, Mail, MapPin, MessageCircle, Play, Image as ImageIcon, Globe } from 'lucide-react';
 import { services } from '../data/mockData';
 import logoImage from 'figma:asset/da6a072baf78bdc68ca5368ac2123d8644ed8db8.png';
 import doctorImage from 'figma:asset/7fc5ebdb2d35bffb567c0b8e0cfaa57931319cdb.png';
@@ -638,7 +638,7 @@ export function LandingPage({ onLoginClick, onRegisterClick }: LandingPageProps)
           <p className="text-gray-600">Estamos aquí para ayudarte</p>
         </div>
 
-        {/* Grid de 5 columnas para incluir Facebook */}
+        {/* Grid de 5 columnas */}
         <div className="grid md:grid-cols-5 gap-6">
           <Card className="border-sky-200">
             <CardHeader className="text-center">
@@ -698,13 +698,13 @@ export function LandingPage({ onLoginClick, onRegisterClick }: LandingPageProps)
             </CardContent>
           </Card>
 
-          {/* Nueva tarjeta de Facebook */}
+          {/* Nueva tarjeta de Sitio Web */}
           <Card className="border-sky-200">
             <CardHeader className="text-center">
               <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-4">
-                <Facebook className="text-blue-600" size={24} />
+                <Globe className="text-blue-600" size={24} />
               </div>
-              <CardTitle className="text-sky-600">Facebook</CardTitle>
+              <CardTitle className="text-sky-600">Sitio Web</CardTitle>
             </CardHeader>
             <CardContent className="text-center">
               <a 

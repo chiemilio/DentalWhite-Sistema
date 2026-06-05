@@ -8,7 +8,6 @@ import { Textarea } from '../../../shared/ui/textarea';
 import { Checkbox } from '../../../shared/ui/checkbox';
 import { Calendar, FileText, User, Plus, Stethoscope, ClipboardList, FileSignature, X, Edit2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../../../shared/ui/dialog';
-import { ScrollArea } from '../../../shared/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../shared/ui/select';
 import { toast } from 'sonner';
 import {
@@ -634,7 +633,7 @@ const loadData = async () => {
                 <DialogTitle className="text-sky-600 text-sm">Historial Clínico del Paciente - Ortodoncia</DialogTitle>
                 <DialogDescription className="sr-only">Formulario para llenar el historial clínico completo del paciente</DialogDescription>
               </DialogHeader>
-              <ScrollArea className="h-[85vh] pr-4">
+              <div className="overflow-y-auto h-[85vh] pr-4 scrollbar-thin">
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label className="text-xs">Seleccionar Paciente ({patients.length} disponibles)</Label>
@@ -693,7 +692,7 @@ const loadData = async () => {
                     );
                   })()}
                 </div>
-              </ScrollArea>
+              </div>
             </DialogContent>
           </Dialog>
 
@@ -709,7 +708,7 @@ const loadData = async () => {
                 <DialogTitle className="text-sky-600">Consentimiento Informado</DialogTitle>
                 <DialogDescription className="sr-only">Formulario de consentimiento informado del paciente para tratamientos estéticos</DialogDescription>
               </DialogHeader>
-              <ScrollArea className="h-[75vh] pr-4">
+              <div className="overflow-y-auto h-[75vh] pr-4 scrollbar-thin">
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label>Seleccionar Paciente</Label>
@@ -763,7 +762,7 @@ const loadData = async () => {
                     );
                   })()}
                 </div>
-              </ScrollArea>
+              </div>
             </DialogContent>
           </Dialog>
 
@@ -779,7 +778,7 @@ const loadData = async () => {
                 <DialogTitle className="text-sky-600">Nuevo Expediente Dental</DialogTitle>
                 <DialogDescription className="sr-only">Formulario para crear un nuevo expediente dental del paciente</DialogDescription>
               </DialogHeader>
-              <ScrollArea className="h-[70vh] pr-4">
+              <div className="overflow-y-auto h-[70vh] pr-4 scrollbar-thin">
                 <div className="space-y-6">
                   {/* Patient Selection */}
                   <div className="space-y-2">
@@ -1494,7 +1493,7 @@ const loadData = async () => {
                     Guardar Expediente
                   </Button>
                 </div>
-              </ScrollArea>
+              </div>
             </DialogContent>
           </Dialog>
         </div>
@@ -1627,10 +1626,10 @@ const loadData = async () => {
             <DialogDescription className="sr-only">Vista completa del expediente dental del paciente</DialogDescription>
           </DialogHeader>
           {viewingRecord && (
-            <ScrollArea className="h-[80vh] pr-4">
+            <div className="overflow-y-auto h-[80vh] pr-4 scrollbar-thin">
               <PrintableMedicalRecord record={viewingRecord} serviceId={viewingServiceId} />
               <PatientPhotosViewer patientId={parseInt(viewingRecord.patientId)} />
-            </ScrollArea>
+            </div>
           )}
         </DialogContent>
       </Dialog>

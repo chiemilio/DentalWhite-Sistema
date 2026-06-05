@@ -19,14 +19,7 @@ export async function sendEmailConfirmation(data: AppointmentConfirmationData): 
   await new Promise((resolve) => setTimeout(resolve, 800));
 
   // Simular respuesta exitosa del servidor
-  console.log('📧 Enviando confirmación por correo a:', data.patientEmail);
-  console.log('Detalles de la cita:', {
-    paciente: data.patientName,
-    servicio: data.serviceName,
-    fecha: data.date,
-    hora: data.time,
-    sucursal: data.workCenterName,
-  });
+  // En producción, aquí se haría la llamada a la API de email
 
   // En producción, aquí se haría la llamada a la API
   // const response = await fetch('/api/send-email-confirmation', {
@@ -73,8 +66,7 @@ Para cualquier cambio, contáctanos con anticipación.
 ¡Te esperamos! 😊
   `.trim();
 
-  console.log('📱 Enviando confirmación por WhatsApp a:', formattedPhone);
-  console.log('Mensaje:', message);
+  // En producción, aquí se haría la llamada a la API de WhatsApp Business
 
   // En producción, aquí se haría la llamada a la API de WhatsApp Business
   // const response = await fetch('/api/send-whatsapp', {

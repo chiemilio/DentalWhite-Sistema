@@ -11,34 +11,33 @@ from fastapi.responses import JSONResponse
 from app.config import settings
 from app.database import engine, Base
 from app.api.v1 import api_router
+from app.core.limiter import limiter
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 # Crear tablas en base de datos
 Base.metadata.create_all(bind=engine)
-
-# Crear aplicación FastAPI
 app = FastAPI(
     title=settings.PROJECT_NAME,
     description="API REST para sistema de gestión de clínica dental",
     version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
-    openapi_url="/openapi.json",
+    docs_url="/docs" if settings.ENVIRONMENT == "development" else None,
+    redoc_url="/redoc" if settings.ENVIRONMENT == "development" else None,
+    openapi_url="/openapi.json" if settings.ENVIRONMENT == "development" else None,
     redirect_slashes=False
 )
 
-# CORS desde settings (lee env var CORS_ORIGINS con fallback a defaults)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 cors_origins = settings.cors_origins_list
-# Siempre incluir el dominio de Vercel (fallback por si env var está mal)
-vercel_url = "https://deltawhitetest.vercel.app"
-if vercel_url not in cors_origins:
-    cors_origins.append(vercel_url)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 
@@ -60,16 +59,8 @@ def health_check():
 
 @app.get("/", tags=["Root"])
 def root():
-    """
-    Root endpoint - Información básica de la API
-    """
     return JSONResponse(
-        content={
-            "message": f"Bienvenido a {settings.PROJECT_NAME} API",
-            "version": "1.0.0",
-            "docs": "/docs",
-            "health": "/health"
-        },
+        content={"message": f"Bienvenido a {settings.PROJECT_NAME} API", "health": "/health"},
         status_code=200
     )
 

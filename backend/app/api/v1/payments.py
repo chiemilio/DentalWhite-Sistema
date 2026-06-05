@@ -10,7 +10,7 @@ from app.database import get_db
 from app.models.payment import Payment, PaymentPartial
 from app.schemas.payment import PaymentCreate, PaymentUpdate, PaymentResponse
 from app.models.user import User
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, require_role
 
 router = APIRouter()
 
@@ -95,7 +95,8 @@ def create_payment(
 @router.get("/{payment_id}/", response_model=PaymentResponse)
 def get_payment(
     payment_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("Admin", "SuperAdmin", "Recepcionista"))
 ):
     """Obtener un pago por ID"""
     payment = db.query(Payment).filter(Payment.id == payment_id).first()
@@ -105,7 +106,6 @@ def get_payment(
 
 
 @router.put("/{payment_id}", response_model=PaymentResponse)
-@router.put("/{payment_id}/", response_model=PaymentResponse)
 @router.put("/{payment_id}/", response_model=PaymentResponse)
 def update_payment(
     payment_id: int,
@@ -178,7 +178,8 @@ def update_payment(
 @router.get("/cita/{cita_id}/", response_model=Optional[PaymentResponse])
 def get_payment_by_cita(
     cita_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("Admin", "SuperAdmin", "Recepcionista"))
 ):
     """Obtener pago de una cita (retorna null si no existe)"""
     payment = db.query(Payment).filter(Payment.cita_id == cita_id).first()

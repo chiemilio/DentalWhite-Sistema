@@ -33,14 +33,14 @@ class PrescriptionBase(BaseModel):
     consulta_id: int = Field(..., description="ID de la consulta asociada")
     indicaciones_generales: Optional[str] = Field(None, description="Indicaciones generales")
 
-    # Signos vitales
-    peso: Optional[float] = Field(None, description="Peso en kg")
-    talla: Optional[float] = Field(None, description="Talla en cm")
-    temperatura: Optional[float] = Field(None, description="Temperatura en °C")
-    presion_sistolica: Optional[int] = Field(None, description="Presión sistólica")
-    presion_diastolica: Optional[int] = Field(None, description="Presión diastólica")
-    pulso: Optional[int] = Field(None, description="Pulso en ppm")
-    glucosa: Optional[float] = Field(None, description="Glucosa en mg/dL")
+    # Signos vitales con validación de rangos
+    peso: Optional[float] = Field(None, ge=1.0, le=400.0, description="Peso en kg (1-400)")
+    talla: Optional[float] = Field(None, ge=10.0, le=250.0, description="Talla en cm (10-250)")
+    temperatura: Optional[float] = Field(None, ge=32.0, le=43.0, description="Temperatura en °C (32-43)")
+    presion_sistolica: Optional[int] = Field(None, ge=50, le=300, description="Presión sistólica (50-300)")
+    presion_diastolica: Optional[int] = Field(None, ge=30, le=200, description="Presión diastólica (30-200)")
+    pulso: Optional[int] = Field(None, ge=20, le=300, description="Pulso en ppm (20-300)")
+    glucosa: Optional[float] = Field(None, ge=10.0, le=600.0, description="Glucosa en mg/dL (10-600)")
 
 
 class PrescriptionCreate(PrescriptionBase):

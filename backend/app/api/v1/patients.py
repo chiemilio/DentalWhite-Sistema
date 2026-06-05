@@ -116,18 +116,15 @@ def create_patient(
     """
     # Crear usuario
     from app.models.user import User
-    import random
+    import secrets
     import string
     
-    # Generar password temporal hasheado
-    temp_password = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
+    temp_password = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(12))
     
-    # Generar email único si no se proporcionó o si ya existe
-    base_email = patient_data.email or f"paciente_{random.randint(1000, 9999)}@temporal.com"
+    base_email = patient_data.email or f"paciente_{secrets.randbelow(90000) + 10000}@temporal.com"
     email = base_email
-    counter = 1
     while db.query(User).filter(User.email == email).first():
-        email = f"paciente_{random.randint(10000, 99999)}@temporal.com"
+        email = f"paciente_{secrets.randbelow(90000) + 10000}@temporal.com"
     
     db_user = User(
         nombre=patient_data.nombre,

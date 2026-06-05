@@ -30,6 +30,7 @@ def seed_users():
              "apellido_paterno": "López", "rol_nombre": "Recepcionista"},
             {"email": "paciente@dentalwhite.com", "password": "paciente123", "nombre": "Carlos",
              "apellido_paterno": "García", "rol_nombre": "Paciente"},
+            # TODO: Leer contraseñas desde variables de entorno en producción
         ]
 
         for u in users_data:
@@ -50,12 +51,7 @@ def seed_users():
                 print(f"Created: {u['email']}")
 
         db.commit()
-        print("\nSeed users completed successfully!")
-        print("\nCredentials:")
-        print("  admin@dentalwhite.com / admin123 (Admin)")
-        print("  doctor@dentalwhite.com / doctor123 (Doctor)")
-        print("  recepcion@dentalwhite.com / recep123 (Recepción)")
-        print("  paciente@dentalwhite.com / paciente123 (Paciente)")
+        print("Seed users completed successfully!")
     finally:
         db.close()
 

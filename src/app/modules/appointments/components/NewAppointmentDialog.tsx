@@ -215,7 +215,7 @@ export function NewAppointmentDialog({ onAppointmentCreated, existingAppointment
       
       const newPatientDataCombined = {
         email: newPatientData.email,
-        password: 'TempPass123!',
+        password: '',  // Backend generates a secure temp password
         nombre: newPatientData.name.split(' ')[0] || newPatientData.name,
         apellido_paterno: newPatientData.name.split(' ').slice(1).join(' ') || '',
         telefono: newPatientData.phone,

@@ -173,6 +173,11 @@ def delete_consultation(
     return None
 
 
+ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+
+
 @router.post("/{consulta_id}/photos/", response_model=ConsultationPhotoResponse, status_code=status.HTTP_201_CREATED)
 async def upload_consultation_photo(
     consulta_id: int,
@@ -186,15 +191,24 @@ async def upload_consultation_photo(
     if not consultation:
         raise HTTPException(status_code=404, detail="Consulta no encontrada")
 
-    ext = os.path.splitext(file.filename or ".jpg")[1]
-    filename = f"{uuid.uuid4()}{ext}"
-    filepath = os.path.join(UPLOAD_DIR, filename)
+    if file.content_type not in ALLOWED_MIME_TYPES:
+        raise HTTPException(status_code=400, detail=f"Tipo de archivo no permitido: {file.content_type}. Solo se permiten imágenes (JPEG, PNG, WebP, GIF).")
+
+    ext = os.path.splitext(file.filename or ".jpg")[1].lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=400, detail=f"Extensión de archivo no permitida: {ext}")
 
     content = await file.read()
+    if len(content) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=400, detail=f"Archivo demasiado grande. Tamaño máximo: {MAX_FILE_SIZE // (1024*1024)} MB")
+
+    safe_filename = f"{uuid.uuid4()}{ext}"
+    filepath = os.path.join(UPLOAD_DIR, safe_filename)
+
     with open(filepath, "wb") as f:
         f.write(content)
 
-    url = f"/uploads/consultations/{filename}"
+    url = f"/uploads/consultations/{safe_filename}"
 
     db_photo = ConsultationPhoto(
         consulta_id=consulta_id,

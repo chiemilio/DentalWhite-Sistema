@@ -1,20 +1,10 @@
 /**
  * JWT UTILITIES - DENTAL WHITE
- * Utilidades para generar, verificar y decodificar JSON Web Tokens
+ * Solo lectura/decodificación de JWTs del lado del cliente.
+ * La generación y verificación de tokens es exclusiva del backend.
  */
 
-import { SignJWT, jwtVerify } from 'jose';
 import { Base64 } from 'js-base64';
-
-// Secret key para firmar tokens (en producción debe estar en variables de entorno)
-const JWT_SECRET = import.meta.env.VITE_JWT_SECRET || 'dental-white-super-secret-key-2026';
-const JWT_ISSUER = 'dental-white-system';
-const JWT_AUDIENCE = 'dental-white-users';
-
-// Convertir el secret a Uint8Array
-const getSecretKey = (): Uint8Array => {
-  return new TextEncoder().encode(JWT_SECRET);
-};
 
 /**
  * Interfaz del Payload del Token
@@ -26,10 +16,10 @@ export interface JWTPayload {
   name: string;
   workCenter?: string;
   specialty?: string;
-  iat?: number; // Issued at
-  exp?: number; // Expiration time
-  iss?: string; // Issuer
-  aud?: string; // Audience
+  iat?: number;
+  exp?: number;
+  iss?: string;
+  aud?: string;
 }
 
 /**
@@ -37,62 +27,12 @@ export interface JWTPayload {
  */
 export interface DecodedToken {
   payload: JWTPayload;
-  isValid: boolean;
   isExpired: boolean;
   expiresAt?: Date;
 }
 
 /**
- * Genera un nuevo JWT
- * @param payload - Datos del usuario
- * @param expiresIn - Tiempo de expiración (default: 24 horas)
- * @returns Token JWT
- */
-export async function generateToken(
-  payload: Omit<JWTPayload, 'iat' | 'exp' | 'iss' | 'aud'>,
-  expiresIn: string = '24h'
-): Promise<string> {
-  try {
-    const secret = getSecretKey();
-
-    const token = await new SignJWT(payload as any)
-      .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
-      .setIssuedAt()
-      .setIssuer(JWT_ISSUER)
-      .setAudience(JWT_AUDIENCE)
-      .setExpirationTime(expiresIn)
-      .sign(secret);
-
-    return token;
-  } catch (error) {
-    console.error('Error generating JWT:', error);
-    throw new Error('Failed to generate token');
-  }
-}
-
-/**
- * Verifica y decodifica un JWT
- * @param token - Token JWT a verificar
- * @returns Payload decodificado si es válido
- */
-export async function verifyToken(token: string): Promise<JWTPayload> {
-  try {
-    const secret = getSecretKey();
-
-    const { payload } = await jwtVerify(token, secret, {
-      issuer: JWT_ISSUER,
-      audience: JWT_AUDIENCE,
-    });
-
-    return payload as JWTPayload;
-  } catch (error) {
-    console.error('Error verifying JWT:', error);
-    throw new Error('Invalid or expired token');
-  }
-}
-
-/**
- * Decodifica un JWT sin verificar (solo para inspección)
+ * Decodifica un JWT sin verificar (solo para leer claims)
  * ADVERTENCIA: No usar para autenticación, solo para leer datos
  * @param token - Token JWT
  * @returns Payload decodificado
@@ -103,11 +43,9 @@ export function decodeTokenUnsafe(token: string): JWTPayload | null {
     if (parts.length !== 3) {
       return null;
     }
-
     const payload = JSON.parse(Base64.decode(parts[1]));
     return payload as JWTPayload;
-  } catch (error) {
-    console.error('Error decoding JWT:', error);
+  } catch {
     return null;
   }
 }
@@ -123,59 +61,10 @@ export function isTokenExpired(token: string): boolean {
     if (!payload || !payload.exp) {
       return true;
     }
-
     const now = Math.floor(Date.now() / 1000);
     return payload.exp < now;
-  } catch (error) {
+  } catch {
     return true;
-  }
-}
-
-/**
- * Obtiene información completa del token
- * @param token - Token JWT
- * @returns Información decodificada con estado de validez
- */
-export async function getTokenInfo(token: string): Promise<DecodedToken> {
-  try {
-    const payload = await verifyToken(token);
-    const expiresAt = payload.exp ? new Date(payload.exp * 1000) : undefined;
-
-    return {
-      payload,
-      isValid: true,
-      isExpired: false,
-      expiresAt,
-    };
-  } catch (error) {
-    const payload = decodeTokenUnsafe(token);
-    const isExpired = isTokenExpired(token);
-
-    return {
-      payload: payload || ({} as JWTPayload),
-      isValid: false,
-      isExpired,
-      expiresAt: payload?.exp ? new Date(payload.exp * 1000) : undefined,
-    };
-  }
-}
-
-/**
- * Refresca un token (genera uno nuevo con los mismos datos)
- * @param oldToken - Token actual
- * @returns Nuevo token
- */
-export async function refreshToken(oldToken: string): Promise<string> {
-  try {
-    const payload = await verifyToken(oldToken);
-
-    // Remover campos automáticos para generar nuevo token
-    const { iat, exp, iss, aud, ...userPayload } = payload;
-
-    return await generateToken(userPayload);
-  } catch (error) {
-    console.error('Error refreshing token:', error);
-    throw new Error('Cannot refresh invalid token');
   }
 }
 
@@ -190,27 +79,11 @@ export function getTokenTimeRemaining(token: string): number {
     if (!payload || !payload.exp) {
       return 0;
     }
-
     const now = Math.floor(Date.now() / 1000);
     const remaining = payload.exp - now;
-
     return remaining > 0 ? remaining : 0;
-  } catch (error) {
+  } catch {
     return 0;
-  }
-}
-
-/**
- * Verifica si un token es válido (firma y expiración)
- * @param token - Token JWT
- * @returns true si es válido
- */
-export async function isValidToken(token: string): Promise<boolean> {
-  try {
-    await verifyToken(token);
-    return true;
-  } catch (error) {
-    return false;
   }
 }
 
@@ -222,13 +95,12 @@ export const REFRESH_TOKEN_STORAGE_KEY = 'dental_white_refresh_token';
 
 /**
  * Guarda el token en localStorage
- * @param token - Token JWT
  */
 export function saveToken(token: string): void {
   try {
     localStorage.setItem(TOKEN_STORAGE_KEY, token);
-  } catch (error) {
-    console.error('Error saving token:', error);
+  } catch {
+    // Silently fail in private browsing mode
   }
 }
 
@@ -239,8 +111,7 @@ export function saveToken(token: string): void {
 export function getStoredToken(): string | null {
   try {
     return localStorage.getItem(TOKEN_STORAGE_KEY);
-  } catch (error) {
-    console.error('Error getting token:', error);
+  } catch {
     return null;
   }
 }
@@ -252,37 +123,7 @@ export function removeToken(): void {
   try {
     localStorage.removeItem(TOKEN_STORAGE_KEY);
     localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
-  } catch (error) {
-    console.error('Error removing token:', error);
-  }
-}
-
-/**
- * Verifica si hay un token válido en storage
- * @returns true si existe y es válido
- */
-export async function hasValidStoredToken(): Promise<boolean> {
-  const token = getStoredToken();
-  if (!token) {
-    return false;
-  }
-
-  return await isValidToken(token);
-}
-
-/**
- * Obtiene el payload del token almacenado
- * @returns Payload o null
- */
-export async function getStoredTokenPayload(): Promise<JWTPayload | null> {
-  const token = getStoredToken();
-  if (!token) {
-    return null;
-  }
-
-  try {
-    return await verifyToken(token);
-  } catch (error) {
-    return null;
+  } catch {
+    // Silently fail
   }
 }

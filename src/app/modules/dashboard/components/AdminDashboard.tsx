@@ -155,7 +155,7 @@ export function AdminDashboard() {
       
       await apiClient.post('/employees/', {
         email: newEmployee.email,
-        password: newEmployee.password || 'Temporal123',
+        password: newEmployee.password || 'Temporal123',  // TODO: Backend should generate secure temp password
         nombre: newEmployee.name,
         telefono: newEmployee.phone,
         rol_id: rolId,

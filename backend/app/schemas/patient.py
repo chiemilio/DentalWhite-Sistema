@@ -3,15 +3,24 @@ Schemas de Paciente
 """
 from typing import Optional
 from datetime import date, datetime
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, model_validator
 
 
 class PatientBase(BaseModel):
     """Schema base de Paciente"""
     tipo_paciente_id: Optional[int] = Field(None, description="ID del tipo de paciente")
     sucursal_id: Optional[int] = Field(None, description="ID de la sucursal")
-    fecha_nacimiento: Optional[date] = None
+    fecha_nacimiento: Optional[date] = Field(None, description="Fecha de nacimiento")
     sexo: Optional[str] = Field(None, description="Masculino, Femenino, No binario, No informar")
+
+    @model_validator(mode='after')
+    def validate_nacimiento(self):
+        if self.fecha_nacimiento and self.fecha_nacimiento > date.today():
+            raise ValueError('La fecha de nacimiento no puede ser futura')
+        if self.fecha_nacimiento and self.fecha_nacimiento < date(1900, 1, 1):
+            raise ValueError('La fecha de nacimiento no puede ser anterior a 1900')
+        return self
+
     ocupacion: Optional[str] = Field(None, max_length=100)
     firma_digitalizada: Optional[str] = Field(None, description="Firma digitalizada para consentimiento")
 
@@ -39,23 +48,23 @@ class PatientCreate(PatientBase):
     telefono: Optional[str] = Field(None, description="Teléfono del usuario")
 
 
-class PatientUpdate(BaseModel):
+class PatientUpdate(PatientBase):
     """Schema para actualizar Paciente"""
-    tipo_paciente_id: Optional[int] = None
-    sucursal_id: Optional[int] = None
-    fecha_nacimiento: Optional[date] = None
-    sexo: Optional[str] = None
-    ocupacion: Optional[str] = None
+    tipo_paciente_id: Optional[int] = Field(None, ge=1)
+    sucursal_id: Optional[int] = Field(None, ge=1)
+    fecha_nacimiento: Optional[date] = Field(None, description="Fecha de nacimiento")
+    sexo: Optional[str] = Field(None, pattern=r"^(Masculino|Femenino|No binario|No informar)$")
+    ocupacion: Optional[str] = Field(None, max_length=100, min_length=1)
     firma_digitalizada: Optional[str] = None
-    direccion: Optional[str] = None
-    ciudad: Optional[str] = None
-    estado: Optional[str] = None
-    codigo_postal: Optional[str] = None
-    telefono_emergencia: Optional[str] = None
-    contacto_emergencia: Optional[str] = None
-    tutor_nombre: Optional[str] = None
-    tutor_telefono: Optional[str] = None
-    tutor_relacion: Optional[str] = None
+    direccion: Optional[str] = Field(None, max_length=255, min_length=1)
+    ciudad: Optional[str] = Field(None, max_length=100, min_length=1)
+    estado: Optional[str] = Field(None, max_length=100, min_length=1)
+    codigo_postal: Optional[str] = Field(None, max_length=10, min_length=3)
+    telefono_emergencia: Optional[str] = Field(None, max_length=20, min_length=7)
+    contacto_emergencia: Optional[str] = Field(None, max_length=100, min_length=1)
+    tutor_nombre: Optional[str] = Field(None, max_length=200, min_length=1)
+    tutor_telefono: Optional[str] = Field(None, max_length=20, min_length=7)
+    tutor_relacion: Optional[str] = Field(None, max_length=50, min_length=1)
 
 
 class PatientResponse(PatientBase):

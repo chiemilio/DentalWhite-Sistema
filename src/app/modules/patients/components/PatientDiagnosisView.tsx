@@ -106,22 +106,8 @@ export function PatientDiagnosisView({ patient, appointment, citaId, onBack }: P
     }
 
     setIsSaving(true);
-    console.log('DEBUG: Guardando consulta con datos:', {
-        cita_id: citaId,
-        notas_adicionales: diagnosisData.consultReason,
-        reconocimiento_hallazgos: diagnosisData.recognition || null,
-        diagnostico: diagnosisData.diagnosis,
-        tratamiento_indicaciones: diagnosisData.treatment,
-      });
     try {
       const response = await apiClient.post<{id: number}>('/consultations/', {
-        cita_id: citaId,
-        notas_adicionales: diagnosisData.consultReason,
-        reconocimiento_hallazgos: diagnosisData.recognition || null,
-        diagnostico: diagnosisData.diagnosis,
-        tratamiento_indicaciones: diagnosisData.treatment,
-      }, true);
-      console.log('DEBUG: Consulta guardada respuesta:', response);
       setConsultationId(response.id);
       await apiClient.put(`/appointments/${citaId}`, { estado_cita_id: 4 });
       setDiagnosisSaved(true);

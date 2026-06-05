@@ -18,7 +18,7 @@ router = APIRouter()
 @router.get("/", response_model=List[EmployeeResponse])
 def list_employees(
     skip: int = 0,
-    limit: int = 100,
+    limit: int = 1000,
     usuario_id: Optional[int] = Query(None, description="Filtrar por usuario_id"),
     es_doctor: Optional[bool] = Query(None, description="Solo doctores"),
     especialidad: Optional[str] = Query(None, description="Filtrar por especialidad"),
@@ -37,12 +37,10 @@ def list_employees(
         
         if usuario_id:
             query = query.filter(Employee.usuario_id == usuario_id)
-            print(f"DEBUG: Filtrando por usuario_id={usuario_id}")
-        
+
         if es_doctor:
             query = query.filter(Employee.puesto.ilike('%doctor%'))
-            print(f"DEBUG: Filtrando solo doctores")
-        
+
         if especialidad:
             from app.models.catalogos import Especialidad
             emp_ids = db.query(Employee.id).join(
@@ -55,17 +53,10 @@ def list_employees(
                 query = query.filter(Employee.id.in_(emp_ids))
             else:
                 query = query.filter(Employee.id == 0)
-            print(f"DEBUG: Filtrando por especialidad={especialidad}")
-        
+
         employees = query.offset(skip).limit(limit).all()
-        
-        result = [EmployeeResponse.from_orm_with_relations(employee) for employee in employees]
-        print(f"DEBUG: Returning {len(result)} employees")
-        return result
+        return [EmployeeResponse.from_orm_with_relations(employee) for employee in employees]
     except Exception as e:
-        import traceback
-        error_msg = f"Error in list_employees: {str(e)}\n{traceback.format_exc()}"
-        print(error_msg)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -112,7 +103,6 @@ def create_employee(
                 detail="El usuario ya tiene un perfil de empleado"
             )
         # User exists but no employee profile - use this user
-        print(f"DEBUG: Using existing user {user.email} with id {user.id}")
     else:
         # Create new user
         from app.api.v1.auth import get_password_hash
@@ -126,7 +116,6 @@ def create_employee(
         db.add(user)
         db.commit()
         db.refresh(user)
-        print(f"DEBUG: Created new user {user.email} with id {user.id}")
     
     # Verify number of employee unique
     existing_numero = db.query(Employee).filter(Employee.numero_empleado == employee_data.numero_empleado).first()

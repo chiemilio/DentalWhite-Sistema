@@ -34,3 +34,8 @@ class TokenPayload(BaseModel):
     iat: int = Field(..., description="Issued at timestamp")
     iss: str = Field(..., description="Issuer")
     aud: str = Field(..., description="Audience")
+
+
+class RefreshRequest(BaseModel):
+    """Request para refrescar token"""
+    access_token: str = Field(..., description="JWT access token actual (válido o no expirado)")

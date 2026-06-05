@@ -85,15 +85,8 @@ class EmployeeResponse(EmployeeBase):
             usuario_email = employee.usuario.email or None
             usuario_telefono = employee.usuario.telefono_principal or None
             usuario_rol_id = employee.usuario.rol_id
-            print(f"DEBUG: usuario.rol = {employee.usuario.rol}")
-            print(f"DEBUG: type(usuario.rol) = {type(employee.usuario.rol)}")
             if employee.usuario.rol:
                 usuario_rol_nombre = employee.usuario.rol.nombre
-                print(f"DEBUG: usuario_rol_nombre = {usuario_rol_nombre}")
-            else:
-                # Try to query the role directly
-                from sqlalchemy.orm import Session
-                print(f"DEBUG: usuario.rol is None, rol_id = {usuario_rol_id}")
         
         if employee.sucursal:
             sucursal_id = employee.sucursal.id
