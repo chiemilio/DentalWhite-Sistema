@@ -106,10 +106,14 @@ def create_employee(
     else:
         # Create new user
         from app.api.v1.auth import get_password_hash
+        name_parts = employee_data.nombre.strip().split(' ', 1)
+        nombre = name_parts[0]
+        apellido_paterno = name_parts[1] if len(name_parts) > 1 else nombre
         user = User(
             email=employee_data.email,
             password_hash=get_password_hash(employee_data.password),
-            nombre=employee_data.nombre,
+            nombre=nombre,
+            apellido_paterno=apellido_paterno,
             telefono_principal=employee_data.telefono,
             rol_id=employee_data.rol_id
         )
@@ -177,9 +181,7 @@ def update_employee(
     nuevo_rol_id = None
     if "usuario_rol_id" in update_data:
         nuevo_rol_id = update_data.pop("usuario_rol_id")
-        print(f"=== UPDATE EMPLOYEE {employee_id} ===")
-        print(f"nuevo_rol_id extract: {nuevo_rol_id}")
-        print(f"employee.usuario_id: {employee.usuario_id}")
+        pass
     
     # Verificar número de empleado único si se está actualizando
     if "numero_empleado" in update_data and update_data["numero_empleado"] != employee.numero_empleado:
@@ -205,12 +207,10 @@ def update_employee(
         try:
             user = db.query(User).filter(User.id == employee.usuario_id).first()
             if user:
-                print(f"Found user id={user.id}, current rol_id={user.rol_id}, setting to {nuevo_rol_id}")
                 user.rol_id = nuevo_rol_id
                 db.commit()
-                print(f"User role updated to {nuevo_rol_id}")
         except Exception as e:
-            print(f"Error updating user role: {e}")
+            pass
 
     # Actualizar especialidades si se proporcionan
     if employee_update.especialidad_ids is not None:

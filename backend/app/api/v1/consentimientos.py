@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user import User
 from app.models.clinical_history import ConsentimientoPaciente
-from app.schemas.consentimiento import ConsentimientoCreate, ConsentimientoUpdate, ConsentimientoResponse
+from app.schemas.consentimiento import ConsentimientoCreate, ConsentimientoResponse
 from app.api.deps import get_current_user, require_role
 
 router = APIRouter()

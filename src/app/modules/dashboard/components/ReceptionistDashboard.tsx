@@ -23,6 +23,15 @@ import { sendAppointmentConfirmations } from '../../../shared/utils/appointmentN
 import { apiClient, type BackendAppointment, type BackendPatient } from '../../../shared/utils/api';
 
 export function ReceptionistDashboard() {
+  const { isDayBlocked, isTimeSlotBlocked, getAvailableTimeSlots } = useAvailability();
+  const getAvailableTimeSlotsForInline = (date: string) => {
+    if (!date || isDayBlocked(date)) return [];
+    const branch = selectedWorkCenter !== 'all'
+      ? (availableBranches.find(b => b.id.toString() === selectedWorkCenter)?.nombre || '')
+      : '';
+    return getAvailableTimeSlots(date, branch);
+  };
+
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [selectedDate, setSelectedDate] = useState(() => {
     const d = new Date();
@@ -48,6 +57,7 @@ export function ReceptionistDashboard() {
   const [isLoading, setIsLoading] = useState(false);
   const [backendAppointments, setBackendAppointments] = useState<BackendAppointment[]>([]);
   const [appointmentStatuses, setAppointmentStatuses] = useState<any[]>([]);
+  const [showUnpaidOnly, setShowUnpaidOnly] = useState(false);
 
   // New appointment dialog state
   const [isNewAppointmentOpen, setIsNewAppointmentOpen] = useState(false);
@@ -130,10 +140,10 @@ export function ReceptionistDashboard() {
       time: timePart ? timePart.slice(0, 5) : '',
       status: backendApt.estado_cita_id === 1 ? 'scheduled' as const :
              backendApt.estado_cita_id === 2 ? 'confirmed' as const :
-             backendApt.estado_cita_id === 3 ? 'cancelled' as const :
              backendApt.estado_cita_id === 4 ? 'completed' as const :
-             backendApt.estado_cita_id === 5 ? 'paid_partial' as const :
-             backendApt.estado_cita_id === 6 ? 'paid_full' as const : 'scheduled' as const,
+             backendApt.estado_cita_id === 5 ? 'cancelled' as const :
+             backendApt.estado_cita_id === 7 ? 'paid_partial' as const :
+             backendApt.estado_cita_id === 8 ? 'paid_full' as const : 'scheduled' as const,
       estadoNombre: backendApt.estado_nombre || 'Sin estado',
     };
   };
@@ -145,11 +155,12 @@ export function ReceptionistDashboard() {
         setIsLoading(true);
         
         const params = new URLSearchParams();
-        // Use selected branch filter
         if (selectedWorkCenter !== 'all') {
           params.append('sucursal_id', selectedWorkCenter);
         }
-        if (selectedDate) {
+        if (showUnpaidOnly) {
+          params.append('limit', '200');
+        } else if (selectedDate) {
           params.append('fecha_inicio', `${selectedDate}T00:00:00`);
           params.append('fecha_fin', `${selectedDate}T23:59:59`);
         }
@@ -165,11 +176,14 @@ export function ReceptionistDashboard() {
     };
     
     fetchAppointments();
-  }, [selectedDate]);
+  }, [selectedDate, showUnpaidOnly]);
 
   const filteredAppointments = appointments.filter((apt) => {
-    const matchesDate = apt.date === selectedDate;
     const matchesWorkCenter = selectedWorkCenter === 'all' || apt.workCenterId === selectedWorkCenter;
+    if (showUnpaidOnly) {
+      return matchesWorkCenter && (apt.status === 'scheduled' || apt.status === 'confirmed' || apt.status === 'paid_partial');
+    }
+    const matchesDate = apt.date === selectedDate;
     return matchesDate && matchesWorkCenter;
   });
 
@@ -201,7 +215,7 @@ export function ReceptionistDashboard() {
   const handleCancelAppointment = async (id: string) => {
     try {
       await apiClient.put<BackendAppointment>(`/appointments/${id}/`, {
-        estado_cita_id: 3  // 3 = Cancelada
+        estado_cita_id: 5  // 5 = Cancelada
       }, true);
       
       // Update local state
@@ -213,7 +227,7 @@ export function ReceptionistDashboard() {
       // Also update backend appointments
       setBackendAppointments(
         backendAppointments.map((apt) =>
-          apt.id.toString() === id ? { ...apt, estado_cita_id: 3, estado_nombre: 'Cancelada' } : apt
+          apt.id.toString() === id ? { ...apt, estado_cita_id: 5, estado_nombre: 'Cancelada' } : apt
         )
       );
       toast.success('Cita cancelada');
@@ -239,10 +253,11 @@ export function ReceptionistDashboard() {
       // No payment exists yet
     }
 
-    setSelectedAppointment(appointment);
+    const totalYaPagado = existingPayment?.monto_pagado || 0;
+    setSelectedAppointment({ ...appointment, _existingPayment: existingPayment, _totalYaPagado: totalYaPagado });
     setPaymentData({
       servicePrice: existingPayment?.monto_total || appointment.servicePrice || 0,
-      amountPaid: existingPayment?.monto_pagado || appointment.amountPaid || 0,
+      amountPaid: 0,
       paymentType: existingPayment?.estado === 'PAGADO' ? 'complete' : 
                   (existingPayment?.monto_restante > 0 && existingPayment?.monto_restante < existingPayment?.monto_total) ? 'installment' : 'complete',
       numberOfPayments: appointment.numberOfPayments || 2,
@@ -267,57 +282,54 @@ export function ReceptionistDashboard() {
           return;
         }
 
-        const citaId = selectedAppointment.id; // string
-        const pacienteId = parseInt(selectedAppointment.patientId); // convertir a int
-        const montoAPagar = paymentData.amountPaid;
+        const citaId = selectedAppointment.id;
+        const pacienteId = parseInt(selectedAppointment.patientId);
+        const nuevoPago = paymentData.amountPaid;
+        const totalYaPagado = (selectedAppointment as any)._totalYaPagado || 0;
+        const totalAcumulado = totalYaPagado + nuevoPago;
 
-        // Verificar si existe payment para esta cita
         let paymentId: number | null = null;
-        const existingPayment = await apiClient.get<any>(`/payments/cita/${citaId}`, true);
+        const existingPayment = selectedAppointment?._existingPayment || await apiClient.get<any>(`/payments/cita/${citaId}`, true).catch(() => null);
         if (existingPayment) {
           paymentId = existingPayment.id;
         }
 
         if (paymentId) {
-          // Actualizar payment existente
           await apiClient.put<any>(`/payments/${paymentId}`, {
             monto_total: paymentData.servicePrice,
-            monto_pagado: montoAPagar,
-            metodo_pago: paymentData.paymentType === 'complete' ? 'EFECTIVO' : 'PARCIAL'
+            monto_pagado: totalAcumulado,
           }, true);
         } else {
-          // Crear nuevo payment
           await apiClient.post<any>('/payments/', {
-            cita_id: parseInt(citaId), // convertir a int
-            paciente_id: pacienteId, // ya es int
+            cita_id: parseInt(citaId),
+            paciente_id: pacienteId,
             monto_total: paymentData.servicePrice,
-            monto_pagado: montoAPagar,
-            metodo_pago: paymentData.paymentType === 'complete' ? 'EFECTIVO' : 'PARCIAL'
+            monto_pagado: totalAcumulado,
           }, true);
         }
 
-        // Auto-update appointment status based on payment
-        if (paymentData.servicePrice > 0 && montoAPagar >= paymentData.servicePrice) {
-          // Pago completo -> estado 6 (Pagado Completo)
+        // Auto-update appointment status based on accumulated payment
+        if (paymentData.servicePrice > 0 && totalAcumulado >= paymentData.servicePrice) {
+          // Pago completo -> Cita Completada (4)
           await apiClient.put<any>(`/appointments/${citaId}/`, {
-            estado_cita_id: 6
+            estado_cita_id: 4
           }, true);
 
           setAppointments(
             appointments.map((apt) =>
-              apt.id === citaId ? { ...apt, status: 'paid_full' as const, estadoNombre: 'Pagado Completo' } : apt
+              apt.id === citaId ? { ...apt, status: 'completed' as const, estadoNombre: 'Completada' } : apt
             )
           );
           setBackendAppointments(
             backendAppointments.map((apt) =>
-              apt.id.toString() === citaId ? { ...apt, estado_cita_id: 6, estado_nombre: 'Pagado Completo' } : apt
+              apt.id.toString() === citaId ? { ...apt, estado_cita_id: 4, estado_nombre: 'Completada' } : apt
             )
           );
-          toast.success('Pago completo registrado. Cita marcada como Pagado Completo.');
-        } else if (montoAPagar > 0) {
-          // Pago parcial -> estado 5 (Pagado Parcial)
+          toast.success('Pago completo. Cita marcada como Completada.');
+        } else if (nuevoPago > 0) {
+          // Pago parcial -> estado 7 (Pagado Parcial)
           await apiClient.put<any>(`/appointments/${citaId}/`, {
-            estado_cita_id: 5
+            estado_cita_id: 7
           }, true);
 
           setAppointments(
@@ -327,10 +339,11 @@ export function ReceptionistDashboard() {
           );
           setBackendAppointments(
             backendAppointments.map((apt) =>
-              apt.id.toString() === citaId ? { ...apt, estado_cita_id: 5, estado_nombre: 'Pagado Parcial' } : apt
+              apt.id.toString() === citaId ? { ...apt, estado_cita_id: 7, estado_nombre: 'Pagado Parcial' } : apt
             )
           );
-          toast.success('Pago parcial registrado.');
+          const restante = paymentData.servicePrice - totalAcumulado;
+          toast.success(`Pago parcial registrado. Restante: $${restante.toFixed(2)}`);
         } else {
           toast.success('Pago registrado correctamente');
         }
@@ -355,7 +368,7 @@ export function ReceptionistDashboard() {
           <CardTitle className="text-sky-600">Filtros de Citas</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label>Fecha</Label>
               <input
@@ -363,6 +376,7 @@ export function ReceptionistDashboard() {
                 className="w-full px-3 py-2 border border-sky-200 rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500"
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
+                disabled={showUnpaidOnly}
               />
             </div>
             <div className="space-y-2">
@@ -380,6 +394,19 @@ export function ReceptionistDashboard() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-2 flex flex-col justify-end">
+              <Label>&nbsp;</Label>
+              <Button
+                variant={showUnpaidOnly ? "default" : "outline"}
+                className={showUnpaidOnly ? "bg-orange-500 hover:bg-orange-600" : "border-sky-300 text-sky-600"}
+                onClick={() => {
+                  setShowUnpaidOnly(!showUnpaidOnly);
+                }}
+              >
+                <AlertCircle className="mr-2" size={16} />
+                {showUnpaidOnly ? 'Mostrando sin pagar' : 'Ver citas sin pagar'}
+              </Button>
             </div>
           </div>
         </CardContent>
@@ -401,15 +428,17 @@ export function ReceptionistDashboard() {
       <Card className="border-sky-200">
         <CardHeader>
           <CardTitle className="text-sky-600">
-            Citas del Día ({filteredAppointments.length})
+            {showUnpaidOnly ? 'Citas Sin Pagar' : 'Citas del Día'} ({filteredAppointments.length})
           </CardTitle>
           <CardDescription>
-            {new Date(selectedDate + 'T00:00:00').toLocaleDateString('es-MX', {
-              weekday: 'long',
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric',
-            })}
+            {showUnpaidOnly
+              ? 'Citas confirmadas y con pago parcial pendiente'
+              : new Date(selectedDate + 'T00:00:00').toLocaleDateString('es-MX', {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                })}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -550,11 +579,7 @@ export function ReceptionistDashboard() {
                 }
                 try {
                   setIsSearching(true);
-                  const apiUrl = import.meta.env.VITE_API_URL || '/api/v1';
-                  console.log('[Search] VITE_API_URL:', apiUrl);
-                  console.log('[Search] Calling:', `/patients/search/?q=${encodeURIComponent(searchTerm)}`);
                   const data = await apiClient.get<BackendPatient[]>(`/patients/search/?q=${encodeURIComponent(searchTerm)}`, true);
-                  console.log('[Search] Response:', data);
                   const results = Array.isArray(data) ? data : [];
                   if (results.length === 0) {
                     toast.info('No se encontraron pacientes');
@@ -857,36 +882,31 @@ export function ReceptionistDashboard() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Fecha</Label>
-                <Input type="date" value={newAppointmentData.date} onChange={(e) => setNewAppointmentData({...newAppointmentData, date: e.target.value})} className="border-sky-200" />
+                <Input type="date" value={newAppointmentData.date} onChange={(e) => {
+                  setNewAppointmentData({...newAppointmentData, date: e.target.value, time: ''});
+                }} className="border-sky-200" />
+                {newAppointmentData.date && isDayBlocked(newAppointmentData.date) && (
+                  <p className="text-xs text-red-500 flex items-center gap-1 mt-1">
+                    <AlertCircle size={12} /> Este día está bloqueado en la agenda
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Hora</Label>
-                <Select value={newAppointmentData.time} onValueChange={(v) => setNewAppointmentData({...newAppointmentData, time: v})}>
-                  <SelectTrigger className="border-sky-200"><SelectValue placeholder="Seleccionar hora" /></SelectTrigger>
+                <Select
+                  value={newAppointmentData.time}
+                  onValueChange={(v) => setNewAppointmentData({...newAppointmentData, time: v})}
+                  disabled={!newAppointmentData.date || !newAppointmentData.employeeId || isDayBlocked(newAppointmentData.date)}
+                >
+                  <SelectTrigger className="border-sky-200"><SelectValue placeholder={
+                    !newAppointmentData.date ? 'Selecciona fecha' :
+                    isDayBlocked(newAppointmentData.date) ? 'Día bloqueado' :
+                    'Seleccionar hora'
+                  } /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="09:00">09:00</SelectItem>
-                    <SelectItem value="09:30">09:30</SelectItem>
-                    <SelectItem value="10:00">10:00</SelectItem>
-                    <SelectItem value="10:30">10:30</SelectItem>
-                    <SelectItem value="11:00">11:00</SelectItem>
-                    <SelectItem value="11:30">11:30</SelectItem>
-                    <SelectItem value="12:00">12:00</SelectItem>
-                    <SelectItem value="12:30">12:30</SelectItem>
-                    <SelectItem value="13:00">13:00</SelectItem>
-                    <SelectItem value="13:30">13:30</SelectItem>
-                    <SelectItem value="14:00">14:00</SelectItem>
-                    <SelectItem value="14:30">14:30</SelectItem>
-                    <SelectItem value="15:00">15:00</SelectItem>
-                    <SelectItem value="15:30">15:30</SelectItem>
-                    <SelectItem value="16:00">16:00</SelectItem>
-                    <SelectItem value="16:30">16:30</SelectItem>
-                    <SelectItem value="17:00">17:00</SelectItem>
-                    <SelectItem value="17:30">17:30</SelectItem>
-                    <SelectItem value="18:00">18:00</SelectItem>
-                    <SelectItem value="18:30">18:30</SelectItem>
-                    <SelectItem value="19:00">19:00</SelectItem>
-                    <SelectItem value="19:30">19:30</SelectItem>
-                    <SelectItem value="20:00">20:00</SelectItem>
+                    {getAvailableTimeSlotsForInline(newAppointmentData.date).map((t) => (
+                      <SelectItem key={t} value={t}>{t}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -896,6 +916,14 @@ export function ReceptionistDashboard() {
               <Button onClick={async () => {
                 if (!newAppointmentData.patientId || !newAppointmentData.serviceId || !newAppointmentData.employeeId || !newAppointmentData.date || !newAppointmentData.time) {
                   toast.error('Completa todos los campos');
+                  return;
+                }
+                if (isDayBlocked(newAppointmentData.date)) {
+                  toast.error('Este día está bloqueado en la agenda');
+                  return;
+                }
+                if (isTimeSlotBlocked(newAppointmentData.date, newAppointmentData.time, '')) {
+                  toast.error('Este horario no está disponible');
                   return;
                 }
                 try {

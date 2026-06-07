@@ -109,10 +109,10 @@ const loadData = async () => {
     loadData();
   }, [user?.id, user?.role]);
 
-// Obtener fechas únicas con citas activas (programadas, confirmadas, pagadas)
+// Obtener fechas únicas con citas activas
   const confirmedDates = [...new Set(
     appointments
-      .filter(a => [1, 2, 5, 6].includes(a.estado_cita_id))
+      .filter(a => [1, 2, 4, 7, 8].includes(a.estado_cita_id))
       .map(a => {
         if (a.fecha) return a.fecha;
         if (a.fecha_hora) {
@@ -124,9 +124,9 @@ const loadData = async () => {
       .filter(Boolean)
   )].sort();
 
-  // Filtrar citas: activas (1=Programada, 2=Confirmada, 5=Pagado Parcial, 6=Pagado Completo) y fecha seleccionada
+  // Filtrar citas: activas (1=Pendiente, 2=Confirmada, 4=Completada, 7=Pagado Parcial, 8=Pagado Completo) y fecha seleccionada
   const filteredAppointments = appointments.filter(apt => {
-    if (![1, 2, 5, 6].includes(apt.estado_cita_id)) return false;
+    if (![1, 2, 4, 7, 8].includes(apt.estado_cita_id)) return false;
     
     // Extraer fecha de múltiples fuentes posibles
     let aptDate = null;
@@ -509,11 +509,10 @@ const loadData = async () => {
 
   const handleAttendAppointment = async (appointment: BackendAppointment) => {
     try {
-      // 4 = Completada (el backend no tiene "en atención")
       await apiClient.put(`/appointments/${appointment.id}`, {
         estado_cita_id: 4
       }, true);
-      toast.success('Cita Iniciada');
+      toast.success('Cita completada');
       
       // Obtener datos completos del paciente desde el backend
       const patientData = await apiClient.get<BackendPatient>(`/patients/${appointment.paciente_id}`, true);
@@ -529,9 +528,8 @@ const loadData = async () => {
 
   const handleCancelAppointment = async (id: number) => {
     try {
-      // 3 = Cancelada
       await apiClient.put(`/appointments/${id}`, {
-        estado_cita_id: 3
+        estado_cita_id: 5
       }, true);
       toast.success('Cita cancelada');
       // Recargar citas
@@ -1532,7 +1530,7 @@ const loadData = async () => {
           {filteredAppointments.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12">
               <Calendar className="text-sky-300 mb-4" size={64} />
-              <p className="text-gray-600">No tienes citas confirmadas para esta fecha</p>
+              <p className="text-gray-600">No tienes citas para esta fecha</p>
               <div className="mt-4 text-sm text-gray-500 text-center bg-yellow-50 p-4 rounded-lg border border-yellow-200">
                 <p className="font-semibold text-yellow-700">DEBUG INFO:</p>
                 <p>User ID: <span className="font-mono">{user?.id}</span></p>

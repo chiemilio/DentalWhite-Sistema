@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import logoImage from 'figma:asset/da6a072baf78bdc68ca5368ac2123d8644ed8db8.png';
-import { Patient } from '../data/mockData';
+import { Patient } from '../../../shared/data/mockData';
 
 interface ClinicalHistoryFormProps {
   patient: Patient;

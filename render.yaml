@@ -1,18 +1,22 @@
+# Render Blueprint - Dental White Backend
+# https://render.com/docs/blueprint-spec
 services:
   - type: web
     name: dental-white-api
     runtime: docker
     region: ohio
     plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
     envVars:
       - key: DATABASE_URL
         sync: false
-      - key: CORS_ORIGINS
-        value: PONER_AQUI_TU_URL_DE_VERCEL
-      - key: ENVIRONMENT
-        value: production
       - key: SECRET_KEY
         sync: false
+      - key: CORS_ORIGINS
+        value: https://deltawhitetest.vercel.app
+      - key: ENVIRONMENT
+        value: production
       - key: ALGORITHM
         value: HS256
       - key: ACCESS_TOKEN_EXPIRE_MINUTES

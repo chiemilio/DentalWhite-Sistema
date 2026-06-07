@@ -6,7 +6,6 @@ import os
 import uuid
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File, Form
-from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
@@ -15,7 +14,7 @@ from app.database import get_db
 from app.models.user import User
 from app.models.consultation import Consultation, ConsultationPhoto
 from app.schemas.consultation import ConsultationCreate, ConsultationUpdate, ConsultationResponse
-from app.schemas.consultation_photo import ConsultationPhotoCreate, ConsultationPhotoResponse
+from app.schemas.consultation_photo import ConsultationPhotoResponse
 from app.api.deps import get_current_user, require_role
 
 UPLOAD_DIR = "/app/uploads/consultations"

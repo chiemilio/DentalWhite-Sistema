@@ -14,11 +14,11 @@ class Settings(BaseSettings):
     # Security
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 480  # 8 horas (antes 10080 = 7 días)
-    REFRESH_TOKEN_EXPIRE_DAYS: int = 7  # Refresh token válido por 7 días
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
-    # CORS
-    CORS_ORIGINS: str = "http://localhost,http://localhost:80,http://localhost:3000,http://127.0.0.1,http://127.0.0.1:80,http://127.0.0.1:3000,https://deltawhitetest.vercel.app"
+    # CORS - URLs del frontend (separadas por coma)
+    CORS_ORIGINS: str = "http://localhost,http://localhost:80,http://localhost:3000,http://127.0.0.1,http://127.0.0.1:80,http://127.0.0.1:3000"
 
     # API
     API_V1_PREFIX: str = "/api/v1"

@@ -53,6 +53,8 @@ def seed_catalogs():
             {"nombre": "Completada", "color": "#10B981"},
             {"nombre": "Cancelada", "color": "#EF4444"},
             {"nombre": "No Asistió", "color": "#6B7280"},
+            {"nombre": "Pagado Parcial", "color": "#F97316"},
+            {"nombre": "Pagado Completo", "color": "#8B5CF6"},
         ]
         for e in estados_data:
             existing = db.query(EstadoCita).filter(EstadoCita.nombre == e["nombre"]).first()

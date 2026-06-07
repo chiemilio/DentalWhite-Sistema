@@ -127,3 +127,25 @@ export function removeToken(): void {
     // Silently fail
   }
 }
+
+/**
+ * Refresca el token JWT usando el endpoint de refresh
+ * @param currentToken - Token actual
+ * @returns Nuevo token
+ */
+export async function refreshToken(currentToken: string): Promise<string> {
+  const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
+  const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ access_token: currentToken }),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: 'Error al refrescar token' }));
+    throw new Error(err.detail || 'Error al refrescar token');
+  }
+
+  const data = await response.json();
+  return data.access_token;
+}

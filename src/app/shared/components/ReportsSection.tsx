@@ -43,7 +43,7 @@ const generateServiceData = (appointments: BackendAppointment[], paymentMap: Map
   const servicePartials: Record<string, number> = {};
 
   appointments.forEach((apt) => {
-    if (apt.estado_cita_id === 3) {
+    if (apt.estado_cita_id === 4) {
       const name = apt.servicio_nombre || 'Otro';
       serviceCounts[name] = (serviceCounts[name] || 0) + 1;
       serviceIncome[name] = (serviceIncome[name] || 0) + getTotalIncome(apt.id, apt.servicio_nombre, paymentMap);
@@ -65,7 +65,7 @@ const generateBranchData = (appointments: BackendAppointment[], paymentMap: Map<
   const branchPartials: Record<string, number> = {};
 
   appointments.forEach((apt) => {
-    if (apt.estado_cita_id === 3) {
+    if (apt.estado_cita_id === 4) {
       const branch = apt.sucursal_nombre || 'Sin sucursal';
       branchCounts[branch] = (branchCounts[branch] || 0) + 1;
       branchIncome[branch] = (branchIncome[branch] || 0) + getTotalIncome(apt.id, apt.servicio_nombre, paymentMap);
@@ -88,7 +88,7 @@ const generateMonthData = (appointments: BackendAppointment[], paymentMap: Map<n
   months.forEach(m => { monthMap[m] = {}; });
 
   appointments.forEach((apt) => {
-    if (apt.estado_cita_id === 3 && apt.fecha) {
+    if (apt.estado_cita_id === 4 && apt.fecha) {
       const d = new Date(apt.fecha);
       const m = months[d.getMonth()];
       const branch = apt.sucursal_nombre || 'Sin sucursal';
@@ -149,7 +149,7 @@ export function ReportsSection({ appointments, payments, paymentPartials }: Repo
   const filteredServiceData = serviceData;
 
   const totalIncome = filteredServiceData.reduce((sum, item) => sum + item.ingresos, 0);
-  const totalAppointments = filteredAppointments.filter(a => a.estado_cita_id === 3).length;
+  const totalAppointments = filteredAppointments.filter(a => a.estado_cita_id === 4).length;
 
   const handleDownloadReport = () => {
     // Open the preview dialog first so report content is rendered
@@ -426,10 +426,10 @@ export function ReportsSection({ appointments, payments, paymentPartials }: Repo
                 <PieChart>
                   <Pie
                     data={[
-                      { name: 'Completadas', value: appointments.filter(a => a.estado_cita_id === 3).length },
+                      { name: 'Completadas', value: appointments.filter(a => a.estado_cita_id === 4).length },
                       { name: 'Confirmadas', value: appointments.filter(a => a.estado_cita_id === 2).length },
-                      { name: 'Programadas', value: appointments.filter(a => a.estado_cita_id === 1).length },
-                      { name: 'Canceladas', value: appointments.filter(a => a.estado_cita_id === 4).length },
+                      { name: 'Pendientes', value: appointments.filter(a => a.estado_cita_id === 1).length },
+                      { name: 'Canceladas', value: appointments.filter(a => a.estado_cita_id === 5).length },
                     ]}
                     cx="50%"
                     cy="50%"
@@ -699,10 +699,10 @@ export function ReportsSection({ appointments, payments, paymentPartials }: Repo
                     <PieChart>
                       <Pie
                         data={[
-                          { name: 'Completadas', value: appointments.filter(a => a.estado_cita_id === 3).length },
+                          { name: 'Completadas', value: appointments.filter(a => a.estado_cita_id === 4).length },
                           { name: 'Confirmadas', value: appointments.filter(a => a.estado_cita_id === 2).length },
-                          { name: 'Programadas', value: appointments.filter(a => a.estado_cita_id === 1).length },
-                          { name: 'Canceladas', value: appointments.filter(a => a.estado_cita_id === 4).length },
+                          { name: 'Pendientes', value: appointments.filter(a => a.estado_cita_id === 1).length },
+                          { name: 'Canceladas', value: appointments.filter(a => a.estado_cita_id === 5).length },
                         ]}
                         cx="50%"
                         cy="50%"

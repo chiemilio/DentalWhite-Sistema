@@ -2,7 +2,7 @@
 Endpoints de Catálogos
 """
 from typing import List, Optional
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, ConfigDict
 
@@ -21,10 +21,26 @@ class BloqueoAgendaResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     sucursal_id: int | None = None
+    empleado_id: int | None = None
+    horario_id: int | None = None
     fecha_inicio: date
     fecha_fin: date
+    hora_inicio: time | None = None
+    hora_fin: time | None = None
+    motivo: str | None = None
     tipo_bloqueo: str | None = None
     activo: bool
+
+
+class BloqueoAgendaCreate(BaseModel):
+    sucursal_id: int | None = None
+    empleado_id: int | None = None
+    fecha_inicio: date
+    fecha_fin: date
+    hora_inicio: str | None = None
+    hora_fin: str | None = None
+    motivo: str = ""
+    tipo_bloqueo: str | None = None
 
 
 class HorarioResponse(BaseModel):
@@ -114,6 +130,48 @@ def get_bloqueos_agenda(sucursal_id: int | None = None, db: Session = Depends(ge
     if sucursal_id:
         query = query.filter(BloqueoAgenda.sucursal_id == sucursal_id)
     return query.all()
+
+
+@router.post("/bloqueos-agenda", response_model=BloqueoAgendaResponse, status_code=201)
+def create_bloqueo_agenda(data: BloqueoAgendaCreate, db: Session = Depends(get_db)):
+    hora_inicio = None
+    hora_fin = None
+    if data.hora_inicio:
+        try:
+            hora_inicio = time.fromisoformat(data.hora_inicio)
+        except ValueError:
+            pass
+    if data.hora_fin:
+        try:
+            hora_fin = time.fromisoformat(data.hora_fin)
+        except ValueError:
+            pass
+
+    bloqueo = BloqueoAgenda(
+        sucursal_id=data.sucursal_id,
+        empleado_id=data.empleado_id,
+        fecha_inicio=data.fecha_inicio,
+        fecha_fin=data.fecha_fin,
+        hora_inicio=hora_inicio,
+        hora_fin=hora_fin,
+        motivo=data.motivo,
+        tipo_bloqueo=data.tipo_bloqueo,
+        activo=True
+    )
+    db.add(bloqueo)
+    db.commit()
+    db.refresh(bloqueo)
+    return bloqueo
+
+
+@router.delete("/bloqueos-agenda/{bloqueo_id}", status_code=204)
+def delete_bloqueo_agenda(bloqueo_id: int, db: Session = Depends(get_db)):
+    bloqueo = db.query(BloqueoAgenda).filter(BloqueoAgenda.id == bloqueo_id).first()
+    if not bloqueo:
+        raise HTTPException(status_code=404, detail="Bloqueo no encontrado")
+    db.delete(bloqueo)
+    db.commit()
+    return None
 
 
 @router.get("/horarios", response_model=List[HorarioResponse])

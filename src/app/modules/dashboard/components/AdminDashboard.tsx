@@ -238,9 +238,9 @@ export function AdminDashboard() {
 
   const handleCancelAppointment = async (id: number) => {
     try {
-      await apiClient.put(`/appointments/${id}`, { estado_cita_id: 4 }, true);
+      await apiClient.put(`/appointments/${id}`, { estado_cita_id: 5 }, true);
       setAppointments(appointments.map((apt) =>
-        apt.id === id ? { ...apt, estado_cita_id: 4 } : apt
+        apt.id === id ? { ...apt, estado_cita_id: 5 } : apt
       ));
       toast.success('Cita cancelada exitosamente');
     } catch {
@@ -320,13 +320,13 @@ export function AdminDashboard() {
         <Card className="border-sky-200">
           <CardHeader className="pb-2">
             <CardDescription>Citas Activas</CardDescription>
-            <CardTitle className="text-3xl text-sky-600">{appointments.filter((a) => a.estado_cita_id !== 4).length}</CardTitle>
+            <CardTitle className="text-3xl text-sky-600">{appointments.filter((a) => a.estado_cita_id !== 5).length}</CardTitle>
           </CardHeader>
         </Card>
         <Card className="border-sky-200">
           <CardHeader className="pb-2">
             <CardDescription>Citas Completadas</CardDescription>
-            <CardTitle className="text-3xl text-sky-600">{appointments.filter((a) => a.estado_cita_id === 3).length}</CardTitle>
+            <CardTitle className="text-3xl text-sky-600">{appointments.filter((a) => a.estado_cita_id === 4).length}</CardTitle>
           </CardHeader>
         </Card>
       </div>
@@ -883,8 +883,8 @@ export function AdminDashboard() {
                       const hour = appointment.fecha_hora
                         ? new Date(appointment.fecha_hora).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
                         : '--:--';
-                      const statusText = appointment.estado_cita_id === 2 ? 'Confirmada' : appointment.estado_cita_id === 4 ? 'Cancelada' : appointment.estado_cita_id === 3 ? 'Completada' : 'Programada';
-                      const statusClass = appointment.estado_cita_id === 2 ? 'bg-green-100 text-green-700' : appointment.estado_cita_id === 4 ? 'bg-red-100 text-red-700' : appointment.estado_cita_id === 3 ? 'bg-gray-100 text-gray-700' : 'bg-yellow-100 text-yellow-700';
+                      const statusText = appointment.estado_cita_id === 2 ? 'Confirmada' : appointment.estado_cita_id === 4 ? 'Completada' : appointment.estado_cita_id === 5 ? 'Cancelada' : 'Pendiente';
+                      const statusClass = appointment.estado_cita_id === 2 ? 'bg-green-100 text-green-700' : appointment.estado_cita_id === 4 ? 'bg-gray-100 text-gray-700' : appointment.estado_cita_id === 5 ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700';
                       return (
                       <TableRow key={appointment.id}>
                         <TableCell>
@@ -901,8 +901,8 @@ export function AdminDashboard() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          {appointment.estado_cita_id !== 4 &&
-                            appointment.estado_cita_id !== 3 && (
+                          {appointment.estado_cita_id !== 5 &&
+                            appointment.estado_cita_id !== 4 && (
                               <Button
                                 size="sm"
                                 variant="outline"

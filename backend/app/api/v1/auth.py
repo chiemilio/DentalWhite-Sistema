@@ -9,7 +9,7 @@ from app.database import get_db
 from app.models.user import User
 from app.core.security import verify_password, create_access_token, get_password_hash, decode_token
 from app.schemas.auth import LoginRequest, LoginResponse, RefreshRequest, UserLoginInfo
-from app.schemas.user import UserCreate, UserResponse, UserRegisterRequest
+from app.schemas.user import UserResponse, UserRegisterRequest
 from app.api.deps import get_current_user
 from app.config import settings
 from app.core.limiter import limiter

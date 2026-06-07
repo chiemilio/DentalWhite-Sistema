@@ -108,8 +108,13 @@ export function PatientDiagnosisView({ patient, appointment, citaId, onBack }: P
     setIsSaving(true);
     try {
       const response = await apiClient.post<{id: number}>('/consultations/', {
+        cita_id: citaId,
+        reconocimiento_hallazgos: diagnosisData.recognition,
+        diagnostico: diagnosisData.diagnosis,
+        tratamiento_indicaciones: diagnosisData.treatment,
+      }, true);
       setConsultationId(response.id);
-      await apiClient.put(`/appointments/${citaId}`, { estado_cita_id: 4 });
+      await apiClient.put(`/appointments/${citaId}`, { estado_cita_id: 5 });
       setDiagnosisSaved(true);
       toast.success('Diagnóstico guardado exitosamente');
     } catch (error: unknown) {

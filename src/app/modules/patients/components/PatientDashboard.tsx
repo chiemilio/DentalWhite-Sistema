@@ -327,8 +327,8 @@ export function PatientDashboard() {
 
   const handleCancelAppointment = async (id: string) => {
     try {
-      // Cambiar estado a cancelada (3) en lugar de eliminar
-      await apiClient.put(`/appointments/${id}`, { estado_cita_id: 3 }, true);
+      // Cambiar estado a cancelada (5)
+      await apiClient.put(`/appointments/${id}`, { estado_cita_id: 5 }, true);
       
       // Actualizar estado en local
       setAppointments(

@@ -6,13 +6,11 @@ from datetime import datetime, date, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import select
 from app.models.patient import Patient
 from app.models.employee import Employee
 
 from app.database import get_db
 from app.models.user import User
-from app.models.patient import Patient
 from app.models.appointment import Appointment
 from app.schemas.appointment import AppointmentCreate, AppointmentUpdate, AppointmentResponse
 from app.api.deps import get_current_user, require_role
