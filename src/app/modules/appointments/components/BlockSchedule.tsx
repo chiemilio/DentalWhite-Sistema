@@ -8,6 +8,7 @@ import { BanIcon, Trash2, Calendar as CalendarIcon, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAvailability } from '../../../shared/context/AvailabilityContext';
 import { workCenters } from '../../../shared/data/mockData';
+import { getLocalDateString, formatDateToDisplay } from '../../../shared/utils/dateUtils';
 import { useAuth } from '../../auth/context/AuthContext';
 
 export function BlockSchedule() {
@@ -104,70 +105,13 @@ export function BlockSchedule() {
                         className="w-full px-3 py-2 border border-sky-200 rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500"
                         value={newBlockedDay.date}
                         onChange={(e) => setNewBlockedDay({ ...newBlockedDay, date: e.target.value })}
-                        min={new Date().toISOString().split('T')[0]}
+                        min={getLocalDateString()}
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label>Motivo del bloqueo</Label>
-                      <Select
-                        value={newBlockedDay.reason}
-                        onValueChange={(value) => setNewBlockedDay({ ...newBlockedDay, reason: value })}
-                      >
-                        <SelectTrigger className="border-sky-200">
-                          <SelectValue placeholder="Seleccionar motivo" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Capacitación del personal">Capacitación del personal</SelectItem>
-                          <SelectItem value="Mantenimiento general">Mantenimiento general</SelectItem>
-                          <SelectItem value="Día festivo">Día festivo</SelectItem>
-                          <SelectItem value="Evento especial">Evento especial</SelectItem>
-                          <SelectItem value="Otro">Otro</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <Button onClick={handleBlockDay} className="w-full bg-red-500 hover:bg-red-600">
-                      Bloquear Día
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
-
-              <Dialog open={isBlockTimeDialogOpen} onOpenChange={setIsBlockTimeDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button className="bg-orange-500 hover:bg-orange-600">
-                    <Clock className="mr-2" size={18} />
-                    Bloquear Horario
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-md">
-                  <DialogHeader>
-                    <DialogTitle className="text-orange-600">Bloquear Horario Específico</DialogTitle>
-                    <DialogDescription>
-                      El horario bloqueado no estará disponible para citas en la sucursal seleccionada
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4 py-4">
-                    <div className="space-y-2">
-                      <Label>Sucursal</Label>
-                      <Select
-                        value={newBlockedTime.branch}
-                        onValueChange={(value) => setNewBlockedTime({ ...newBlockedTime, branch: value })}
-                      >
-                        <SelectTrigger className="border-sky-200">
-                          <SelectValue placeholder="Seleccionar sucursal" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {workCenters.map((center) => (
-                            <SelectItem key={center.id} value={center.name}>
-                              {center.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Fecha</Label>
-                      <input
+                    {newBlockedTime.date && (
+                      <div className="space-y-2">
+                        <Label>Hora de inicio</Label>
+                        <input
                         type="date"
                         className="w-full px-3 py-2 border border-sky-200 rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500"
                         value={newBlockedTime.date}
@@ -235,7 +179,7 @@ export function BlockSchedule() {
                         <div>
                           <p className="text-gray-900">
                             <CalendarIcon className="inline mr-2" size={16} />
-                            {new Date(day.date + 'T12:00:00').toLocaleDateString('es-MX', {
+                            {formatDateToDisplay(day.date, 'es-MX', {
                               weekday: 'long',
                               year: 'numeric',
                               month: 'long',
@@ -277,7 +221,7 @@ export function BlockSchedule() {
                         <div>
                           <p className="text-gray-900">
                             <Clock className="inline mr-2" size={16} />
-                            {new Date(slot.date + 'T12:00:00').toLocaleDateString('es-MX')} - {slot.time}
+                            {formatDateToDisplay(slot.date)} - {slot.time}
                           </p>
                           <p className="text-sm text-gray-600 mt-1">
                             <strong>Sucursal:</strong> {slot.branch}

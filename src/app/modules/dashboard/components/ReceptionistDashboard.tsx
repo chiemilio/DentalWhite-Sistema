@@ -12,26 +12,17 @@ import {
   TableHeader,
   TableRow,
 } from '../../../shared/ui/table';
-import { Calendar, Search, CheckCircle, XCircle, Clock, User, DollarSign, Edit, Plus, AlertCircle, CalendarPlus } from 'lucide-react';
+import { Calendar, Search, CheckCircle, XCircle, Clock, User, DollarSign, Edit, Plus, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { workCenters, type Appointment } from '../../../shared/data/mockData';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../../../shared/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '../../../shared/ui/radio-group';
 import { useAvailability } from '../../../shared/context/AvailabilityContext';
 import { sendAppointmentConfirmations } from '../../../shared/utils/appointmentNotifications';
-
+import { NewAppointmentDialog } from '../../appointments/components/NewAppointmentDialog';
 import { apiClient, type BackendAppointment, type BackendPatient } from '../../../shared/utils/api';
 
 export function ReceptionistDashboard() {
-  const { isDayBlocked, isTimeSlotBlocked, getAvailableTimeSlots } = useAvailability();
-  const getAvailableTimeSlotsForInline = (date: string) => {
-    if (!date || isDayBlocked(date)) return [];
-    const branch = selectedWorkCenter !== 'all'
-      ? (availableBranches.find(b => b.id.toString() === selectedWorkCenter)?.nombre || '')
-      : '';
-    return getAvailableTimeSlots(date, branch);
-  };
-
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [selectedDate, setSelectedDate] = useState(() => {
     const d = new Date();
@@ -56,58 +47,32 @@ export function ReceptionistDashboard() {
   // Backend appointments state
   const [isLoading, setIsLoading] = useState(false);
   const [backendAppointments, setBackendAppointments] = useState<BackendAppointment[]>([]);
-  const [appointmentStatuses, setAppointmentStatuses] = useState<any[]>([]);
-  const [showUnpaidOnly, setShowUnpaidOnly] = useState(false);
 
-  // New appointment dialog state
-  const [isNewAppointmentOpen, setIsNewAppointmentOpen] = useState(false);
-  const [newAppointmentData, setNewAppointmentData] = useState({
-    patientId: '',
-    serviceId: '',
-    date: '',
-    time: '',
-    employeeId: '',
-    notes: '',
-  });
-  const [availableEmployees, setAvailableEmployees] = useState<any[]>([]);
-  const [availableServices, setAvailableServices] = useState<any[]>([]);
-  const [allPatients, setAllPatients] = useState<any[]>([]);
-  const [newAppointmentSearch, setNewAppointmentSearch] = useState('');
-  const [showPatientDropdown, setShowPatientDropdown] = useState(false);
-  const [availableBranches, setAvailableBranches] = useState<any[]>([]);
-
-  // Patient registration dialog state
-  const [isNewPatientOpen, setIsNewPatientOpen] = useState(false);
-  const [newPatientData, setNewPatientData] = useState({
-    nombre: '',
-    apellido: '',
-    email: '',
-    telefono: '',
-    fecha_nacimiento: '',
-  });
-
-  // Load employees, services, patients, estados and branches
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [employees, services, patients, estados, branches] = await Promise.all([
-          apiClient.get<any[]>('/employees/', true),
-          apiClient.get<any[]>('/catalogos/servicios', true),
-          apiClient.get<any[]>('/patients/', true),
-          apiClient.get<any[]>('/catalogos/estados-cita', true),
-          apiClient.get<any[]>('/catalogos/sucursales', true),
-        ]);
-        setAvailableEmployees(employees || []);
-        setAvailableServices(services || []);
-        setAllPatients(patients || []);
-        setAppointmentStatuses(estados || []);
-        setAvailableBranches(branches || []);
-      } catch (e) {
-        console.error('Error loading data:', e);
-      }
+  const mapAppointment = (backendAppt: BackendAppointment): Appointment => {
+    const fechaHora = new Date(backendAppt.fecha_hora);
+    const date = `${fechaHora.getFullYear()}-${String(fechaHora.getMonth() + 1).padStart(2, '0')}-${String(fechaHora.getDate()).padStart(2, '0')}`;
+    const time = fechaHora.toTimeString().split(' ')[0].substring(0, 5);
+    const statusMap: Record<string, Appointment['status']> = {
+      'Programada': 'scheduled',
+      'Confirmada': 'confirmed',
+      'Cancelada': 'cancelled',
+      'Completada': 'completed',
     };
-    loadData();
-  }, []);
+    return {
+      id: backendAppt.id.toString(),
+      patientId: backendAppt.paciente_id.toString(),
+      patientName: backendAppt.paciente_nombre || '',
+      serviceId: backendAppt.servicio_id.toString(),
+      serviceName: backendAppt.servicio_nombre || '',
+      workCenterId: backendAppt.sucursal_id.toString(),
+      workCenterName: backendAppt.sucursal_nombre || '',
+      date,
+      time,
+      status: statusMap[backendAppt.estado_nombre || 'Programada'] || 'scheduled',
+      doctorId: backendAppt.empleado_id.toString(),
+      doctorName: backendAppt.empleado_nombre || '',
+    };
+  };
 
   const handleSearchPatients = useCallback(async (query: string) => {
     if (query.length < 2) {
@@ -125,29 +90,6 @@ export function ReceptionistDashboard() {
     }
   }, []);
 
-  // Helper function to map backend appointment to frontend format
-  const mapAppointment = (backendApt: BackendAppointment): Appointment => {
-    const [datePart, timePart] = (backendApt.fecha_hora || '').split('T');
-    return {
-      id: backendApt.id.toString(),
-      patientId: backendApt.paciente_id.toString(),
-      patientName: backendApt.paciente_nombre || 'Sin nombre',
-      serviceId: backendApt.servicio_id.toString(),
-      serviceName: backendApt.servicio_nombre || 'Sin servicio',
-      workCenterId: backendApt.sucursal_id.toString(),
-      workCenterName: backendApt.sucursal_nombre || 'Sin sucursal',
-      date: datePart || '',
-      time: timePart ? timePart.slice(0, 5) : '',
-      status: backendApt.estado_cita_id === 1 ? 'scheduled' as const :
-             backendApt.estado_cita_id === 2 ? 'confirmed' as const :
-             backendApt.estado_cita_id === 4 ? 'completed' as const :
-             backendApt.estado_cita_id === 5 ? 'cancelled' as const :
-             backendApt.estado_cita_id === 7 ? 'paid_partial' as const :
-             backendApt.estado_cita_id === 8 ? 'paid_full' as const : 'scheduled' as const,
-      estadoNombre: backendApt.estado_nombre || 'Sin estado',
-    };
-  };
-
   // Fetch appointments from backend
   useEffect(() => {
     const fetchAppointments = async () => {
@@ -155,12 +97,8 @@ export function ReceptionistDashboard() {
         setIsLoading(true);
         
         const params = new URLSearchParams();
-        if (selectedWorkCenter !== 'all') {
-          params.append('sucursal_id', selectedWorkCenter);
-        }
-        if (showUnpaidOnly) {
-          params.append('limit', '200');
-        } else if (selectedDate) {
+        params.append('sucursal_id', '1');
+        if (selectedDate) {
           params.append('fecha_inicio', `${selectedDate}T00:00:00`);
           params.append('fecha_fin', `${selectedDate}T23:59:59`);
         }
@@ -176,63 +114,45 @@ export function ReceptionistDashboard() {
     };
     
     fetchAppointments();
-  }, [selectedDate, showUnpaidOnly]);
+  }, [selectedDate]);
 
   const filteredAppointments = appointments.filter((apt) => {
-    const matchesWorkCenter = selectedWorkCenter === 'all' || apt.workCenterId === selectedWorkCenter;
-    if (showUnpaidOnly) {
-      return matchesWorkCenter && (apt.status === 'scheduled' || apt.status === 'confirmed' || apt.status === 'paid_partial');
-    }
     const matchesDate = apt.date === selectedDate;
+    const matchesWorkCenter = selectedWorkCenter === 'all' || apt.workCenterId === selectedWorkCenter;
     return matchesDate && matchesWorkCenter;
   });
 
   const handleConfirmAppointment = async (id: string) => {
     try {
-      const data = await apiClient.put<BackendAppointment>(`/appointments/${id}/`, {
+      // Use apiClient instead of raw fetch
+      const data = await apiClient.put<BackendAppointment>(`/appointments/${id}`, {
         estado_cita_id: 2  // 2 = Confirmada
       }, true);
       
-      // Update local state with the response from server
       setAppointments(
         appointments.map((apt) =>
           apt.id === id ? { ...apt, status: 'confirmed' as const } : apt
         )
       );
-      // Also update backend appointments
-      setBackendAppointments(
-        backendAppointments.map((apt) =>
-          apt.id.toString() === id ? { ...apt, estado_cita_id: 2, estado_nombre: 'Confirmada' } : apt
-        )
-      );
       toast.success('Cita confirmada');
     } catch (error) {
-      console.error('Error confirming appointment:', error);
       toast.error(error instanceof Error ? error.message : 'Error al confirmar cita');
     }
   };
 
   const handleCancelAppointment = async (id: string) => {
     try {
-      await apiClient.put<BackendAppointment>(`/appointments/${id}/`, {
-        estado_cita_id: 5  // 5 = Cancelada
+      await apiClient.put<BackendAppointment>(`/appointments/${id}`, {
+        estado_cita_id: 3  // 3 = Cancelada
       }, true);
       
-      // Update local state
       setAppointments(
         appointments.map((apt) =>
           apt.id === id ? { ...apt, status: 'cancelled' as const } : apt
         )
       );
-      // Also update backend appointments
-      setBackendAppointments(
-        backendAppointments.map((apt) =>
-          apt.id.toString() === id ? { ...apt, estado_cita_id: 5, estado_nombre: 'Cancelada' } : apt
-        )
-      );
       toast.success('Cita cancelada');
     } catch (error) {
-      console.error('Error cancelling appointment:', error);
       toast.error(error instanceof Error ? error.message : 'Error al cancelar cita');
     }
   };
@@ -245,19 +165,12 @@ export function ReceptionistDashboard() {
   const handleOpenPaymentDialog = async (appointment: any) => {
     const appointmentId = appointment.id;
     
-    // Try to fetch existing payment from backend
-    let existingPayment = null;
-    try {
-      existingPayment = await apiClient.get<any>(`/payments/cita/${appointmentId}`, true);
-    } catch (e) {
-      // No payment exists yet
-    }
+    const existingPayment = await apiClient.getOptional<any>(`/payments/cita/${appointmentId}`, true);
 
-    const totalYaPagado = existingPayment?.monto_pagado || 0;
-    setSelectedAppointment({ ...appointment, _existingPayment: existingPayment, _totalYaPagado: totalYaPagado });
+    setSelectedAppointment(appointment);
     setPaymentData({
       servicePrice: existingPayment?.monto_total || appointment.servicePrice || 0,
-      amountPaid: 0,
+      amountPaid: existingPayment?.monto_pagado || appointment.amountPaid || 0,
       paymentType: existingPayment?.estado === 'PAGADO' ? 'complete' : 
                   (existingPayment?.monto_restante > 0 && existingPayment?.monto_restante < existingPayment?.monto_total) ? 'installment' : 'complete',
       numberOfPayments: appointment.numberOfPayments || 2,
@@ -282,71 +195,31 @@ export function ReceptionistDashboard() {
           return;
         }
 
-        const citaId = selectedAppointment.id;
-        const pacienteId = parseInt(selectedAppointment.patientId);
-        const nuevoPago = paymentData.amountPaid;
-        const totalYaPagado = (selectedAppointment as any)._totalYaPagado || 0;
-        const totalAcumulado = totalYaPagado + nuevoPago;
+        const citaId = selectedAppointment.id; // string
+        const pacienteId = parseInt(selectedAppointment.patientId); // convertir a int
+        const montoAPagar = paymentData.amountPaid;
 
-        let paymentId: number | null = null;
-        const existingPayment = selectedAppointment?._existingPayment || await apiClient.get<any>(`/payments/cita/${citaId}`, true).catch(() => null);
-        if (existingPayment) {
-          paymentId = existingPayment.id;
-        }
+        const existingPayment = await apiClient.getOptional<any>(`/payments/cita/${citaId}`, true);
+        const paymentId = existingPayment?.id ?? null;
 
         if (paymentId) {
+          // Actualizar payment existente
           await apiClient.put<any>(`/payments/${paymentId}`, {
-            monto_total: paymentData.servicePrice,
-            monto_pagado: totalAcumulado,
+            monto_pagado: montoAPagar,
+            metodo_pago: paymentData.paymentType === 'complete' ? 'EFECTIVO' : 'PARCIAL'
           }, true);
         } else {
+          // Crear nuevo payment
           await apiClient.post<any>('/payments/', {
-            cita_id: parseInt(citaId),
-            paciente_id: pacienteId,
+            cita_id: parseInt(citaId), // convertir a int
+            paciente_id: pacienteId, // ya es int
             monto_total: paymentData.servicePrice,
-            monto_pagado: totalAcumulado,
+            monto_pagado: montoAPagar,
+            metodo_pago: paymentData.paymentType === 'complete' ? 'EFECTIVO' : 'PARCIAL'
           }, true);
         }
 
-        // Auto-update appointment status based on accumulated payment
-        if (paymentData.servicePrice > 0 && totalAcumulado >= paymentData.servicePrice) {
-          // Pago completo -> Cita Completada (4)
-          await apiClient.put<any>(`/appointments/${citaId}/`, {
-            estado_cita_id: 4
-          }, true);
-
-          setAppointments(
-            appointments.map((apt) =>
-              apt.id === citaId ? { ...apt, status: 'completed' as const, estadoNombre: 'Completada' } : apt
-            )
-          );
-          setBackendAppointments(
-            backendAppointments.map((apt) =>
-              apt.id.toString() === citaId ? { ...apt, estado_cita_id: 4, estado_nombre: 'Completada' } : apt
-            )
-          );
-          toast.success('Pago completo. Cita marcada como Completada.');
-        } else if (nuevoPago > 0) {
-          // Pago parcial -> estado 7 (Pagado Parcial)
-          await apiClient.put<any>(`/appointments/${citaId}/`, {
-            estado_cita_id: 7
-          }, true);
-
-          setAppointments(
-            appointments.map((apt) =>
-              apt.id === citaId ? { ...apt, status: 'paid_partial' as const, estadoNombre: 'Pagado Parcial' } : apt
-            )
-          );
-          setBackendAppointments(
-            backendAppointments.map((apt) =>
-              apt.id.toString() === citaId ? { ...apt, estado_cita_id: 7, estado_nombre: 'Pagado Parcial' } : apt
-            )
-          );
-          const restante = paymentData.servicePrice - totalAcumulado;
-          toast.success(`Pago parcial registrado. Restante: $${restante.toFixed(2)}`);
-        } else {
-          toast.success('Pago registrado correctamente');
-        }
+        toast.success('Pago registrado correctamente');
       } catch (error) {
         console.error('Error saving payment:', error);
         toast.error('Error al registrar pago');
@@ -368,7 +241,7 @@ export function ReceptionistDashboard() {
           <CardTitle className="text-sky-600">Filtros de Citas</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid md:grid-cols-3 gap-4">
+          <div className="grid md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Fecha</Label>
               <input
@@ -376,7 +249,6 @@ export function ReceptionistDashboard() {
                 className="w-full px-3 py-2 border border-sky-200 rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500"
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
-                disabled={showUnpaidOnly}
               />
             </div>
             <div className="space-y-2">
@@ -387,58 +259,31 @@ export function ReceptionistDashboard() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todas las sucursales</SelectItem>
-                  {availableBranches.map((branch) => (
-                    <SelectItem key={branch.id} value={branch.id.toString()}>
-                      {branch.nombre}
+                  {workCenters.map((center) => (
+                    <SelectItem key={center.id} value={center.id}>
+                      {center.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2 flex flex-col justify-end">
-              <Label>&nbsp;</Label>
-              <Button
-                variant={showUnpaidOnly ? "default" : "outline"}
-                className={showUnpaidOnly ? "bg-orange-500 hover:bg-orange-600" : "border-sky-300 text-sky-600"}
-                onClick={() => {
-                  setShowUnpaidOnly(!showUnpaidOnly);
-                }}
-              >
-                <AlertCircle className="mr-2" size={16} />
-                {showUnpaidOnly ? 'Mostrando sin pagar' : 'Ver citas sin pagar'}
-              </Button>
-            </div>
           </div>
         </CardContent>
       </Card>
-
-      {/* Action buttons */}
-      <div className="flex gap-4">
-        <Button onClick={() => setIsNewAppointmentOpen(true)} className="bg-sky-500 hover:bg-sky-600">
-          <CalendarPlus className="mr-2" size={20} />
-          Nueva Cita
-        </Button>
-        <Button variant="outline" onClick={() => setIsNewPatientOpen(true)} className="border-sky-300 text-sky-600 hover:bg-sky-50">
-          <Plus className="mr-2" size={20} />
-          Registrar Paciente
-        </Button>
-      </div>
 
       {/* Appointments Table */}
       <Card className="border-sky-200">
         <CardHeader>
           <CardTitle className="text-sky-600">
-            {showUnpaidOnly ? 'Citas Sin Pagar' : 'Citas del Día'} ({filteredAppointments.length})
+            Citas del Día ({filteredAppointments.length})
           </CardTitle>
           <CardDescription>
-            {showUnpaidOnly
-              ? 'Citas confirmadas y con pago parcial pendiente'
-              : new Date(selectedDate + 'T00:00:00').toLocaleDateString('es-MX', {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                })}
+            {(() => {
+              const [y, m, d] = selectedDate.split('-').map(Number);
+              return new Date(y, m - 1, d).toLocaleDateString('es-MX', {
+                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+              });
+            })()}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -479,76 +324,49 @@ export function ReceptionistDashboard() {
                               ? 'bg-green-100 text-green-700'
                               : appointment.status === 'cancelled'
                               ? 'bg-red-100 text-red-700'
-                              : appointment.status === 'completed'
-                              ? 'bg-blue-100 text-blue-700'
-                              : appointment.status === 'paid_partial'
-                              ? 'bg-orange-100 text-orange-700'
-                              : appointment.status === 'paid_full'
-                              ? 'bg-purple-100 text-purple-700'
                               : 'bg-yellow-100 text-yellow-700'
                           }`}
                         >
-                          {appointment.estadoNombre || 
-                            (appointment.status === 'confirmed' ? 'Confirmada' :
-                             appointment.status === 'cancelled' ? 'Cancelada' :
-                             appointment.status === 'completed' ? 'Completada' :
-                             appointment.status === 'paid_partial' ? 'Pagado Parcial' :
-                             appointment.status === 'paid_full' ? 'Pagado Completo' : 'Programada')}
+                          {appointment.status === 'confirmed'
+                            ? 'Confirmada'
+                            : appointment.status === 'cancelled'
+                            ? 'Cancelada'
+                            : 'Programada'}
                         </div>
                       </TableCell>
                       <TableCell>
-                          <div className="flex gap-2">
-                            {appointment.status === 'scheduled' && (
-                              <>
-                                <Button
-                                  size="sm"
-                                  onClick={() => handleConfirmAppointment(appointment.id)}
-                                  className="bg-green-500 hover:bg-green-600"
-                                  title="Confirmar"
-                                >
-                                  <CheckCircle size={16} />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleCancelAppointment(appointment.id)}
-                                  className="border-red-300 text-red-600 hover:bg-red-50"
-                                  title="Cancelar"
-                                >
-                                  <XCircle size={16} />
-                                </Button>
-                              </>
-                            )}
-                            {appointment.status === 'confirmed' && (
+                        <div className="flex gap-2">
+                          {appointment.status === 'scheduled' && (
+                            <>
+                              <Button
+                                size="sm"
+                                onClick={() => handleConfirmAppointment(appointment.id)}
+                                className="bg-green-500 hover:bg-green-600"
+                              >
+                                <CheckCircle size={16} />
+                              </Button>
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => handleOpenPaymentDialog(appointment)}
-                                className="border-sky-300 text-sky-600 hover:bg-sky-50"
-                                title="Pago"
+                                onClick={() => handleCancelAppointment(appointment.id)}
+                                className="border-red-300 text-red-600 hover:bg-red-50"
                               >
-                                <DollarSign size={16} />
+                                <XCircle size={16} />
                               </Button>
-                            )}
-                            {appointment.status === 'completed' && (
-                              <CheckCircle className="text-green-500" size={16} />
-                            )}
-                            {appointment.status === 'paid_partial' && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleOpenPaymentDialog(appointment)}
-                                className="border-green-300 text-green-600 hover:bg-green-50"
-                                title="Completar Pago"
-                              >
-                                <DollarSign size={16} />
-                              </Button>
-                            )}
-                            {appointment.status === 'cancelled' && (
-                              <XCircle className="text-gray-400" size={16} />
-                            )}
-                          </div>
-                        </TableCell>
+                            </>
+                          )}
+                          {appointment.status === 'confirmed' && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleOpenPaymentDialog(appointment)}
+                              className="border-sky-300 text-sky-600 hover:bg-sky-50"
+                            >
+                              <DollarSign size={16} />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -588,9 +406,7 @@ export function ReceptionistDashboard() {
                   }
                   setSearchResults(results);
                 } catch(error) {
-                  console.error('[Search] Error:', error);
-                  const apiUrl = import.meta.env.VITE_API_URL || '/api/v1';
-                  toast.error(`Error al buscar pacientes (API: ${apiUrl})`);
+                  toast.error('Error al buscar pacientes');
                   setSearchResults([]);
                 } finally {
                   setIsSearching(false);
@@ -810,211 +626,12 @@ export function ReceptionistDashboard() {
       </Dialog>
 
       {/* New Appointment Dialog */}
-      <Dialog open={isNewAppointmentOpen} onOpenChange={setIsNewAppointmentOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-sky-600">Agendar Nueva Cita</DialogTitle>
-            <DialogDescription>Selecciona paciente, servicio y horario</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Paciente</Label>
-              <div className="relative">
-                <Input
-                  placeholder="Buscar paciente..."
-                  value={newAppointmentSearch}
-                  onChange={(e) => {
-                    setNewAppointmentSearch(e.target.value);
-                    setShowPatientDropdown(true);
-                  }}
-                  className="border-sky-200"
-                />
-                {showPatientDropdown && newAppointmentSearch && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-sky-200 rounded-md shadow-lg max-h-48 overflow-auto">
-                    {allPatients
-                      .filter(p => 
-                        ((p.usuario_nombre || '').toLowerCase().includes(newAppointmentSearch.toLowerCase())) ||
-                        ((p.usuario_email || '').toLowerCase().includes(newAppointmentSearch.toLowerCase())) ||
-                        ((p.usuario_telefono || '').includes(newAppointmentSearch))
-                      )
-                      .map((p) => (
-                        <div
-                          key={p.id}
-                          className="px-3 py-2 cursor-pointer hover:bg-sky-50"
-                          onClick={() => {
-                            setNewAppointmentData({...newAppointmentData, patientId: p.id.toString()});
-                            setNewAppointmentSearch(p.usuario_nombre || '');
-                            setShowPatientDropdown(false);
-                          }}
-                        >
-                          {p.usuario_nombre} {p.usuario_telefono ? `- ${p.usuario_telefono}` : ''}
-                        </div>
-                      ))}
-                  </div>
-                )}
-              </div>
-              {newAppointmentData.patientId && (
-                <p className="text-sm text-green-600">Paciente seleccionado</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label>Servicio</Label>
-              <Select value={newAppointmentData.serviceId} onValueChange={(v) => setNewAppointmentData({...newAppointmentData, serviceId: v})}>
-                <SelectTrigger className="border-sky-200"><SelectValue placeholder="Seleccionar servicio" /></SelectTrigger>
-                <SelectContent>
-                  {availableServices.map((s) => (
-                    <SelectItem key={s.id} value={s.id.toString()}>{s.nombre}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Doctor</Label>
-              <Select value={newAppointmentData.employeeId} onValueChange={(v) => setNewAppointmentData({...newAppointmentData, employeeId: v})}>
-                <SelectTrigger className="border-sky-200"><SelectValue placeholder="Seleccionar doctor" /></SelectTrigger>
-                <SelectContent>
-                  {availableEmployees.map((e) => (
-                    <SelectItem key={e.id} value={e.id.toString()}>{e.usuario_nombre || e.nombre}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Fecha</Label>
-                <Input type="date" value={newAppointmentData.date} onChange={(e) => {
-                  setNewAppointmentData({...newAppointmentData, date: e.target.value, time: ''});
-                }} className="border-sky-200" />
-                {newAppointmentData.date && isDayBlocked(newAppointmentData.date) && (
-                  <p className="text-xs text-red-500 flex items-center gap-1 mt-1">
-                    <AlertCircle size={12} /> Este día está bloqueado en la agenda
-                  </p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label>Hora</Label>
-                <Select
-                  value={newAppointmentData.time}
-                  onValueChange={(v) => setNewAppointmentData({...newAppointmentData, time: v})}
-                  disabled={!newAppointmentData.date || !newAppointmentData.employeeId || isDayBlocked(newAppointmentData.date)}
-                >
-                  <SelectTrigger className="border-sky-200"><SelectValue placeholder={
-                    !newAppointmentData.date ? 'Selecciona fecha' :
-                    isDayBlocked(newAppointmentData.date) ? 'Día bloqueado' :
-                    'Seleccionar hora'
-                  } /></SelectTrigger>
-                  <SelectContent>
-                    {getAvailableTimeSlotsForInline(newAppointmentData.date).map((t) => (
-                      <SelectItem key={t} value={t}>{t}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsNewAppointmentOpen(false)}>Cancelar</Button>
-              <Button onClick={async () => {
-                if (!newAppointmentData.patientId || !newAppointmentData.serviceId || !newAppointmentData.employeeId || !newAppointmentData.date || !newAppointmentData.time) {
-                  toast.error('Completa todos los campos');
-                  return;
-                }
-                if (isDayBlocked(newAppointmentData.date)) {
-                  toast.error('Este día está bloqueado en la agenda');
-                  return;
-                }
-                if (isTimeSlotBlocked(newAppointmentData.date, newAppointmentData.time, '')) {
-                  toast.error('Este horario no está disponible');
-                  return;
-                }
-                try {
-                  const fecha_hora = `${newAppointmentData.date}T${newAppointmentData.time}:00`;
-                  await apiClient.post('/appointments/', {
-                    paciente_id: parseInt(newAppointmentData.patientId),
-                    servicio_id: parseInt(newAppointmentData.serviceId),
-                    empleado_id: parseInt(newAppointmentData.employeeId),
-                    sucursal_id: selectedWorkCenter !== 'all' ? parseInt(selectedWorkCenter) : 1,
-                    fecha_hora,
-                    estado_cita_id: 1,
-                    duracion_minutos: 30,
-                    notas: newAppointmentData.notes,
-                  }, true);
-                  toast.success('Cita creada correctamente');
-                  setIsNewAppointmentOpen(false);
-                  setNewAppointmentData({ patientId: '', serviceId: '', date: '', time: '', employeeId: '', notes: '' });
-                  const params = new URLSearchParams();
-                  params.append('sucursal_id', selectedWorkCenter !== 'all' ? selectedWorkCenter : '1');
-                  if (selectedDate) {
-                    params.append('fecha_inicio', `${selectedDate}T00:00:00`);
-                    params.append('fecha_fin', `${selectedDate}T23:59:59`);
-                  }
-                  const data = await apiClient.get<BackendAppointment[]>(`/appointments?${params.toString()}`, true);
-                  setBackendAppointments(Array.isArray(data) ? data : []);
-                  setAppointments(Array.isArray(data) ? data.map(mapAppointment) : []);
-                } catch (e) {
-                  toast.error('Error al crear cita');
-                }
-              }} className="bg-sky-500 hover:bg-sky-600">Crear Cita</Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* New Patient Dialog */}
-      <Dialog open={isNewPatientOpen} onOpenChange={setIsNewPatientOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-sky-600">Registrar Nuevo Paciente</DialogTitle>
-            <DialogDescription>Completa los datos del paciente</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Nombre *</Label>
-              <Input value={newPatientData.nombre} onChange={(e) => setNewPatientData({...newPatientData, nombre: e.target.value})} className="border-sky-200" placeholder="Nombre" />
-            </div>
-            <div className="space-y-2">
-              <Label>Apellido *</Label>
-              <Input value={newPatientData.apellido} onChange={(e) => setNewPatientData({...newPatientData, apellido: e.target.value})} className="border-sky-200" placeholder="Apellido" />
-            </div>
-            <div className="space-y-2">
-              <Label>Email</Label>
-              <Input type="email" value={newPatientData.email} onChange={(e) => setNewPatientData({...newPatientData, email: e.target.value})} className="border-sky-200" placeholder="email@example.com" />
-            </div>
-            <div className="space-y-2">
-              <Label>Teléfono</Label>
-              <Input value={newPatientData.telefono} onChange={(e) => setNewPatientData({...newPatientData, telefono: e.target.value})} className="border-sky-200" placeholder="1234567890" />
-            </div>
-            <div className="space-y-2">
-              <Label>Fecha de Nacimiento</Label>
-              <Input type="date" value={newPatientData.fecha_nacimiento} onChange={(e) => setNewPatientData({...newPatientData, fecha_nacimiento: e.target.value})} className="border-sky-200" />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsNewPatientOpen(false)}>Cancelar</Button>
-              <Button onClick={async () => {
-                if (!newPatientData.nombre || !newPatientData.apellido) {
-                  toast.error('Completa nombre y apellido');
-                  return;
-                }
-                try {
-                  await apiClient.post('/patients/', {
-                    nombre: newPatientData.nombre,
-                    apellido: newPatientData.apellido,
-                    email: newPatientData.email || null,
-                    telefono: newPatientData.telefono || null,
-                    fecha_nacimiento: newPatientData.fecha_nacimiento || null,
-                  }, true);
-                  toast.success('Paciente registrado correctamente');
-                  setIsNewPatientOpen(false);
-                  setNewPatientData({ nombre: '', apellido: '', email: '', telefono: '', fecha_nacimiento: '' });
-                } catch (e) {
-                  toast.error('Error al registrar paciente');
-                }
-              }} className="bg-sky-500 hover:bg-sky-600">Registrar Paciente</Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* FAB placeholder removed */}
+      <div className="fixed bottom-6 right-6">
+        <NewAppointmentDialog
+          onAppointmentCreated={(appointment) => setAppointments([...appointments, appointment])}
+          existingAppointments={appointments}
+        />
+      </div>
     </div>
   );
 }

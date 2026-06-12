@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { AuthProvider, useAuth } from './modules/auth/context/AuthContext';
 import { AvailabilityProvider } from './shared/context/AvailabilityContext';
 import { PatientProvider } from './shared/context/PatientContext';
-import { Login, Register, LandingPage } from './modules/auth';
-import { Dashboard } from './modules/dashboard/components/Dashboard';
-import { Toaster } from './shared/ui/sonner';
-import { useTokenRefresh } from './shared/hooks/useTokenRefresh';
+import { LandingPage } from './components/LandingPage';
+import { Login } from './components/Login';
+import { Register } from './components/Register';
+import { Dashboard } from './components/Dashboard';
+import { Toaster } from './components/ui/sonner';
+import { useTokenRefresh } from './hooks/useTokenRefresh';
 
 type View = 'landing' | 'login' | 'register' | 'dashboard';
 
@@ -13,12 +15,14 @@ function AppContent() {
   const [currentView, setCurrentView] = useState<View>('landing');
   const { user, isLoading } = useAuth();
 
+  // Auto-refresh JWT tokens before expiration
   useTokenRefresh({
-    refreshBeforeExpiry: 300,
-    checkInterval: 60000,
-    showNotifications: true,
+    refreshBeforeExpiry: 300,  // Refresh 5 minutes before expiry
+    checkInterval: 60000,      // Check every minute
+    showNotifications: true,   // Show toast notifications
   });
 
+  // Show loading while checking authentication
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-sky-50 to-white">
@@ -30,10 +34,12 @@ function AppContent() {
     );
   }
 
+  // If user is logged in, show dashboard
   if (user) {
     return <Dashboard />;
   }
 
+  // Otherwise show the appropriate view
   switch (currentView) {
     case 'login':
       return (

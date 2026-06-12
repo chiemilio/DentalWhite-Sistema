@@ -30,7 +30,7 @@ function getHeaders(includeAuth: boolean = true): HeadersInit {
  */
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ detail: `Error ${response.status}` }));
+    const errorData = await response.json().catch(() => ({ detail: 'Error desconocido' }));
     throw new Error(errorData.detail || `Error ${response.status}`);
   }
   return response.json();
@@ -40,37 +40,64 @@ async function handleResponse<T>(response: Response): Promise<T> {
  * Cliente API con métodos HTTP básicos
  */
 function getEndpointUrl(endpoint: string): string {
-  if (endpoint === '/auth/login') {
-    return `${API_BASE_URL}/auth/login`;
-  }
-  if (endpoint.startsWith('/catalogos')) {
-    return `${API_BASE_URL}${endpoint}`;
-  }
-  if (endpoint.startsWith('/appointments') || endpoint.startsWith('/consultations')) {
-    let url = `${API_BASE_URL}${endpoint}`;
-    if (!endpoint.endsWith('/') && !endpoint.includes('?')) {
-      url += '/';
-    }
-    return url;
-  }
+  // Don't add trailing slash to endpoints that already have a digit at the end (like /employees/11 or /employees/11/)
   const shouldAddSlash = !endpoint.endsWith('/') && !endpoint.includes('?') && !/\d$/.test(endpoint);
   const url = `${API_BASE_URL}${endpoint}`;
   return shouldAddSlash ? url + '/' : url;
 }
 
+/**
+ * Headless category loader for catalogos
+ */
+async function loadCatalogos<T>(endpoint: string, addSlash: boolean = true): Promise<T[]> {
+  const url = addSlash && !endpoint.endsWith('/') && !endpoint.includes('?') && !/\d$/.test(endpoint)
+    ? `${API_BASE_URL}${endpoint}/`
+    : `${API_BASE_URL}${endpoint}`;
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: getHeaders(true),
+  });
+  return handleResponse<T[]>(response);
+}
+
+export const catalogoClient = {
+  async getRoles(): Promise<BackendRole[]> {
+    return loadCatalogos<BackendRole>('/catalogos/roles', false);
+  },
+  async getSucursales(): Promise<BackendSucursal[]> {
+    return loadCatalogos<BackendSucursal>('/catalogos/sucursales', false);
+  },
+};
+
 export const apiClient = {
+  /**
+ * GET request
+ */
   async get<T>(endpoint: string, includeAuth: boolean = true): Promise<T> {
-    const url = getEndpointUrl(endpoint);
-    const response = await fetch(url, {
+    const response = await fetch(getEndpointUrl(endpoint), {
       method: 'GET',
       headers: getHeaders(includeAuth),
     });
     return handleResponse<T>(response);
   },
 
+  /**
+   * GET request that returns null on 404 (resource may not exist)
+   */
+  async getOptional<T>(endpoint: string, includeAuth: boolean = true): Promise<T | null> {
+    const response = await fetch(getEndpointUrl(endpoint), {
+      method: 'GET',
+      headers: getHeaders(includeAuth),
+    });
+    if (response.status === 404) return null;
+    return handleResponse<T>(response);
+  },
+
+  /**
+   * POST request
+   */
   async post<T>(endpoint: string, data: unknown, includeAuth: boolean = true): Promise<T> {
-    const url = getEndpointUrl(endpoint);
-    const response = await fetch(url, {
+    const response = await fetch(getEndpointUrl(endpoint), {
       method: 'POST',
       headers: getHeaders(includeAuth),
       body: JSON.stringify(data),
@@ -78,9 +105,11 @@ export const apiClient = {
     return handleResponse<T>(response);
   },
 
+  /**
+   * PUT request
+   */
   async put<T>(endpoint: string, data: unknown, includeAuth: boolean = true): Promise<T> {
-    const url = getEndpointUrl(endpoint);
-    const response = await fetch(url, {
+    const response = await fetch(getEndpointUrl(endpoint), {
       method: 'PUT',
       headers: getHeaders(includeAuth),
       body: JSON.stringify(data),
@@ -88,6 +117,9 @@ export const apiClient = {
     return handleResponse<T>(response);
   },
 
+  /**
+   * PATCH request
+   */
   async patch<T>(endpoint: string, data: unknown, includeAuth: boolean = true): Promise<T> {
     const response = await fetch(getEndpointUrl(endpoint), {
       method: 'PATCH',
@@ -97,6 +129,9 @@ export const apiClient = {
     return handleResponse<T>(response);
   },
 
+/**
+   * DELETE request
+   */
   async delete<T>(endpoint: string, includeAuth: boolean = true): Promise<T> {
     const response = await fetch(getEndpointUrl(endpoint), {
       method: 'DELETE',
@@ -106,6 +141,9 @@ export const apiClient = {
   },
 };
 
+/**
+ * Interfaces for catalogos
+ */
 export interface BackendRole {
   id: number;
   nombre: string;
@@ -122,25 +160,27 @@ export interface BackendSucursal {
   email?: string;
 }
 
+/**
+ * Tipos de datos para las APIs
+ */
 export interface BackendAppointment {
-   id: number;
-   paciente_id: number;
-   empleado_id: number;
-   servicio_id: number;
-   sucursal_id: number;
-   estado_cita_id: number;
-   fecha?: string;
-   fecha_hora?: string;
-   duracion_minutos: number;
-   motivo?: string;
-   notas?: string;
-   fecha_creacion: string;
-   fecha_actualizacion: string;
-   paciente_nombre?: string;
-   empleado_nombre?: string;
-   servicio_nombre?: string;
-   sucursal_nombre?: string;
-   estado_nombre?: string;
+  id: number;
+  paciente_id: number;
+  empleado_id: number;
+  servicio_id: number;
+  sucursal_id: number;
+  estado_cita_id: number;
+  fecha_hora: string;
+  duracion_minutos: number;
+  motivo?: string;
+  notas?: string;
+  fecha_creacion: string;
+  fecha_actualizacion: string;
+  paciente_nombre?: string;
+  empleado_nombre?: string;
+  servicio_nombre?: string;
+  sucursal_nombre?: string;
+  estado_nombre?: string;
 }
 
 export interface CreateAppointmentDTO {
@@ -194,9 +234,6 @@ export interface BackendPatient {
   sucursal_id?: number;
   numero_expediente: string;
   fecha_nacimiento: string;
-  sexo?: string;
-  ocupacion?: string;
-  firma_digitalizada?: string;
   direccion?: string;
   ciudad?: string;
   estado?: string;
@@ -212,35 +249,6 @@ export interface BackendPatient {
   usuario_nombre?: string;
   usuario_email?: string;
   usuario_telefono?: string;
-}
-
-export interface BackendPaymentPartial {
-  id: number;
-  pago_id: number;
-  cita_id: number;
-  monto: number;
-  metodo_pago?: string;
-  fecha_pago?: string;
-  numero_recibo?: string;
-  servicio_nombre?: string;
-}
-
-export interface BackendPayment {
-  id: number;
-  cita_id: number;
-  paciente_id: number;
-  monto_total: number;
-  monto_pagado: number;
-  monto_restante: number;
-  estado: string;
-  metodo_pago?: string;
-  numero_recibo?: string;
-  fecha_pago?: string;
-  activo: boolean;
-  fecha_creacion: string;
-  fecha_actualizacion: string;
-  cita_fecha?: string;
-  paciente_nombre?: string;
 }
 
 export interface BackendCatalogItem {

@@ -11,6 +11,7 @@ import { useAuth } from '../../auth/context/AuthContext';
 import { useAvailability } from '../../../shared/context/AvailabilityContext';
 import { sendAppointmentConfirmations, getConfirmationMessage } from '../../../shared/utils/appointmentNotifications';
 import { apiClient, type BackendAppointment, type BackendCatalogItem } from '../../../shared/utils/api';
+import { getLocalDateString, parseDateToLocal, combineToISOString } from '../../../shared/utils/dateUtils';
 
 export function PatientDashboard() {
   const { user, token } = useAuth();
@@ -39,21 +40,9 @@ export function PatientDashboard() {
 
   // Map backend appointment to frontend format
   const mapAppointment = (backendAppt: BackendAppointment): Appointment => {
-    let date = '';
-    let time = '';
-    
-    if (backendAppt.fecha_hora) {
-      const raw = backendAppt.fecha_hora;
-      const d = typeof raw === 'string' ? new Date(raw) : raw;
-      const y = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      date = `${y}-${m}-${day}`;
-      time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-    } else if (backendAppt.fecha) {
-      const [y, m, d] = backendAppt.fecha.split('-').map(Number);
-      date = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-    }
+    const fechaHora = new Date(backendAppt.fecha_hora);
+    const date = `${fechaHora.getFullYear()}-${String(fechaHora.getMonth() + 1).padStart(2, '0')}-${String(fechaHora.getDate()).padStart(2, '0')}`;
+    const time = fechaHora.toTimeString().split(' ')[0].substring(0, 5);
     
     // Map status
     const statusMap: Record<string, Appointment['status']> = {
@@ -139,25 +128,22 @@ export function PatientDashboard() {
 
   const fetchHorariosOcupados = async (date: string, sucursalId: number) => {
     try {
-      // First try with specific sucursal
-      let response = await apiClient.get<Array<{ id: number; hora: string }>>(
+      const response = await apiClient.get<Array<{ id: number; hora: string }>>(
         `/catalogos/horarios?sucursal_id=${sucursalId}`
       );
-      
-      // If no horarios for this sucursal, get all active horarios
-      if (!response || response.length === 0) {
-        response = await apiClient.get<Array<{ id: number; hora: string }>>(
-          '/catalogos/horarios'
-        );
-      }
       
       if (!response || response.length === 0) {
         setHorariosOcupados(new Set());
         return;
       }
       
-      // Check all horarios for availability
-      const occupiedPromises = response.map(async (horario) => {
+      // Solo verificar disponibilidad si hay menos de 20 horarios
+      if (response.length > 20) {
+        setHorariosOcupados(new Set());
+        return;
+      }
+      
+      const occupiedPromises = response.slice(0, 10).map(async (horario) => {
         try {
           const result = await checkDisponibilidad(date, horario.hora, sucursalId);
           return { hora: horario.hora, ocupado: !result.disponible };
@@ -293,8 +279,9 @@ export function PatientDashboard() {
     }
 
     try {
-      // Get employee to find associated doctor (using doctor employee ID 1)
-      const empleadoId = 1; // Default doctor - Employee ID 1
+      // Get service to find associated doctor (simplified - using default doctor ID 3)
+      // In production, you'd fetch available doctors for the service
+      const empleadoId = 3; // Default doctor - Dr. Carlos Méndez
       
       const estadoCitaId = getProgramadaStatusId();
 
@@ -304,7 +291,7 @@ export function PatientDashboard() {
         servicio_id: parseInt(newAppointment.serviceId),
         sucursal_id: parseInt(newAppointment.workCenterId),
         estado_cita_id: estadoCitaId,
-        fecha_hora: `${newAppointment.date}T${newAppointment.time}:00`,
+        fecha_hora: combineToISOString(newAppointment.date, newAppointment.time),
         duracion_minutos: 30,
       });
 
@@ -327,15 +314,11 @@ export function PatientDashboard() {
 
   const handleCancelAppointment = async (id: string) => {
     try {
-      // Cambiar estado a cancelada (5)
-      await apiClient.put(`/appointments/${id}`, { estado_cita_id: 5 }, true);
+      // Call backend to delete/cancel appointment
+      await apiClient.delete(`/appointments/${id}`);
       
-      // Actualizar estado en local
-      setAppointments(
-        appointments.map((apt) =>
-          apt.id === id ? { ...apt, status: 'cancelled' as const } : apt
-        )
-      );
+      // Remove from local state
+      setAppointments(appointments.filter((apt) => apt.id !== id));
       toast.success('Cita cancelada');
     } catch (error) {
       console.error('Error canceling appointment:', error);
@@ -343,13 +326,12 @@ export function PatientDashboard() {
     }
   };
 
-  const todayLocal = new Date();
-  const todayStr = `${todayLocal.getFullYear()}-${String(todayLocal.getMonth() + 1).padStart(2, '0')}-${String(todayLocal.getDate()).padStart(2, '0')}`;
+  const now = new Date();
   const upcomingAppointments = appointments.filter(
-    (apt) => apt.status !== 'cancelled' && apt.date >= todayStr
+    (apt) => apt.status !== 'cancelled' && parseDateToLocal(apt.date) >= now
   );
   const pastAppointments = appointments.filter(
-    (apt) => apt.status === 'completed' || apt.date < todayStr
+    (apt) => apt.status === 'completed' || parseDateToLocal(apt.date) < now
   );
 
   if (isLoading) {
@@ -442,7 +424,7 @@ export function PatientDashboard() {
                   onChange={(e) =>
                     setNewAppointment({ ...newAppointment, date: e.target.value, time: '' })
                   }
-                  min={new Date().toLocaleDateString('en-CA')}
+                  min={getLocalDateString()}
                   disabled={!newAppointment.workCenterId}
                 />
                 {newAppointment.date && isDayBlocked(newAppointment.date) && (
@@ -465,36 +447,68 @@ export function PatientDashboard() {
 
               <div className="space-y-2">
                 <Label htmlFor="hora">Hora</Label>
-                <Select
-                  name="hora"
-                  value={newAppointment.time}
-                  onValueChange={(value) =>
-                    setNewAppointment({ ...newAppointment, time: value })
-                  }
-                  disabled={!newAppointment.date || !newAppointment.workCenterId}
-                >
-                  <SelectTrigger id="hora" className="border-sky-200">
-                    <SelectValue placeholder={
-                      !newAppointment.date 
-                        ? "Primero selecciona una fecha" 
-                        : !newAppointment.workCenterId
-                        ? "Selecciona una sucursal"
-                        : getAvailableTimeSlotsForSelection().length === 0
-                        ? "No hay horarios disponibles"
-                        : "Seleccionar hora"
-                    } />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {getAvailableTimeSlotsForSelection().map((time) => (
-                      <SelectItem key={time} value={time}>
-                        {time}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {getAvailableTimeSlotsForSelection().length > 0 && (
+                {catalogHorarios.length > 0 ? (
+                  <div className="border border-sky-200 rounded-md max-h-48 overflow-y-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-sky-50 sticky top-0">
+                        <tr>
+                          <th className="px-3 py-2 text-left text-sky-700 font-medium">Hora</th>
+                          <th className="px-3 py-2 text-left text-sky-700 font-medium">Estado</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {catalogHorarios.map((horario) => {
+                          const isOccupied = horariosOcupados.has(horario.hora);
+                          return (
+                            <tr 
+                              key={horario.id} 
+                              className={`border-t border-sky-100 cursor-pointer hover:bg-sky-50 ${newAppointment.time === horario.hora ? 'bg-sky-100' : ''} ${isOccupied ? 'opacity-50' : ''}`}
+                              onClick={() => !isOccupied && setNewAppointment({ ...newAppointment, time: horario.hora })}
+                            >
+                              <td className="px-3 py-2 text-gray-700">{horario.hora}</td>
+                              <td className="px-3 py-2">
+                                {isOccupied ? (
+                                  <span className="text-xs text-red-600">Ocupado</span>
+                                ) : (
+                                  <span className="text-xs text-green-600">Disponible</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <Select
+                    name="hora"
+                    value={newAppointment.time}
+                    onValueChange={(value) =>
+                      setNewAppointment({ ...newAppointment, time: value })
+                    }
+                    disabled={!newAppointment.date || !newAppointment.workCenterId}
+                  >
+                    <SelectTrigger id="hora" className="border-sky-200">
+                      <SelectValue placeholder={
+                        !newAppointment.date 
+                          ? "Primero selecciona una fecha" 
+                          : getAvailableTimeSlotsForSelection().length === 0
+                          ? "No hay horarios disponibles"
+                          : "Seleccionar hora"
+                      } />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {getAvailableTimeSlotsForSelection().map((time) => (
+                        <SelectItem key={time} value={time}>
+                          {time}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {catalogHorarios.length > 0 && (
                   <p className="text-xs text-gray-600">
-                    {getAvailableTimeSlotsForSelection().length} horarios disponibles
+                    {catalogHorarios.length - horariosOcupados.size} horarios disponibles de {catalogHorarios.length}
                   </p>
                 )}
               </div>
@@ -554,7 +568,12 @@ export function PatientDashboard() {
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 text-gray-700">
                       <Calendar className="text-sky-500" size={16} />
-                      <span>{(() => { const [a,b,c] = appointment.date.split('-').map(Number); return new Date(a,b-1,c).toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }); })()}</span>
+                      <span>{new Date(appointment.date).toLocaleDateString('es-MX', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                      })}</span>
                     </div>
                     <div className="flex items-center gap-2 text-gray-700">
                       <Clock className="text-sky-500" size={16} />
@@ -603,7 +622,7 @@ export function PatientDashboard() {
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 text-gray-700">
                       <Calendar className="text-sky-500" size={16} />
-                      <span>{(() => { const [a,b,c] = appointment.date.split('-').map(Number); return new Date(a,b-1,c).toLocaleDateString('es-MX'); })()}</span>
+                      <span>{new Date(appointment.date).toLocaleDateString('es-MX')}</span>
                     </div>
                     <div className="flex items-center gap-2 text-gray-700">
                       <MapPin className="text-sky-500" size={16} />

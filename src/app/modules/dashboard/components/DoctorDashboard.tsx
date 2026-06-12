@@ -6,10 +6,12 @@ import { Input } from '../../../shared/ui/input';
 import { Label } from '../../../shared/ui/label';
 import { Textarea } from '../../../shared/ui/textarea';
 import { Checkbox } from '../../../shared/ui/checkbox';
-import { Calendar, FileText, User, Plus, Stethoscope, ClipboardList, FileSignature, X, Edit2 } from 'lucide-react';
+import { Calendar, FileText, User, Plus, Stethoscope, ClipboardList, FileSignature, X, Edit2, CalendarPlus } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../../../shared/ui/dialog';
+import { ScrollArea } from '../../../shared/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../shared/ui/select';
 import { toast } from 'sonner';
+import { getLocalDateString } from '../../../shared/utils/dateUtils';
 import {
   appointments as initialAppointments,
   medicalRecords as initialRecords,
@@ -25,7 +27,7 @@ import { apiClient, type BackendAppointment, type BackendPatient } from '../../.
 import { PatientDiagnosisView } from '../../patients/components/PatientDiagnosisView';
 import { PrintableMedicalRecord } from '../../medical-records/components/PrintableMedicalRecord';
 import { ConsentForm } from '../../medical-records/components/ConsentForm';
-import { ClinicalHistoryForm, type ClinicalHistoryData } from '../../medical-records/components/ClinicalHistoryForm';
+import { ClinicalHistoryForm } from '../../medical-records/components/ClinicalHistoryForm';
 
 export function DoctorDashboard() {
   const { user } = useAuth();
@@ -36,8 +38,6 @@ export function DoctorDashboard() {
   const [isRecordDialogOpen, setIsRecordDialogOpen] = useState(false);
   const [selectedPatientId, setSelectedPatientId] = useState<string>('');
   const [empleadoId, setEmpleadoId] = useState<number>(0);
-  const [debugInfo, setDebugInfo] = useState<string>('');
-  const [errorInfo, setErrorInfo] = useState<string>('');
   // Helper para fecha local YYYY-MM-DD
   const getLocalDateString = (d: Date) => {
     const year = d.getFullYear();
@@ -49,31 +49,37 @@ export function DoctorDashboard() {
   const [selectedDate, setSelectedDate] = useState(getLocalDateString(new Date()));
   const [isClinicalHistoryOpen, setIsClinicalHistoryOpen] = useState(false);
   const [isConsentFormOpen, setIsConsentFormOpen] = useState(false);
-  const [clinicalHistoryData, setClinicalHistoryData] = useState<Partial<ClinicalHistoryData>>({});
-  const [isSavingClinicalHistory, setIsSavingClinicalHistory] = useState(false);
-  const [existingClinicalHistory, setExistingClinicalHistory] = useState<ClinicalHistoryData | null>(null);
+  const [errorInfo, setErrorInfo] = useState<string>('');
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [viewingRecord, setViewingRecord] = useState<any | null>(null);
   
   // Appointment management states
+  const [isCreateAppointmentOpen, setIsCreateAppointmentOpen] = useState(false);
   const [isRescheduleDialogOpen, setIsRescheduleDialogOpen] = useState(false);
   const [rescheduleAppointment, setRescheduleAppointment] = useState<any | null>(null);
+  const [attendingAppointment, setAttendingAppointment] = useState<any | null>(null);
+  const [newAppointment, setNewAppointment] = useState({
+    patientId: '',
+    serviceId: '',
+    workCenterId: '',
+    date: '',
+    time: '',
+  });
   const [rescheduleData, setRescheduleData] = useState({
     date: '',
     time: '',
   });
-  const [attendingAppointment, setAttendingAppointment] = useState<BackendAppointment | null>(null);
-  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
-  const [viewingRecord, setViewingRecord] = useState<any>(null);
-  const [viewingServiceId, setViewingServiceId] = useState<number>(0);
 
   // Cargar datos desde API
   useEffect(() => {
     if (!user?.id) {
+      console.log('DoctorDashboard: No hay usuario');
       return;
     }
     
+    console.log('DoctorDashboard: user.id =', user.id, 'role =', user.role);
     
-    
-const loadData = async () => {
+    const loadData = async () => {
       try {
         setErrorInfo('');
         
@@ -92,7 +98,7 @@ const loadData = async () => {
         
         setEmpleadoId(empId);
         
-        const appointmentsData = await apiClient.get<any[]>(`/appointments/?empleado_id=${empId}`, true);
+        const appointmentsData = await apiClient.get<any[]>(`/appointments/?usuario_id=${userId}`, true);
         const patientsData = await apiClient.get<any[]>('/patients/', true);
         const servicesData = await apiClient.get<any[]>('/catalogos/servicios', true);
         
@@ -109,46 +115,12 @@ const loadData = async () => {
     loadData();
   }, [user?.id, user?.role]);
 
-// Obtener fechas únicas con citas activas
-  const confirmedDates = [...new Set(
-    appointments
-      .filter(a => [1, 2, 4, 7, 8].includes(a.estado_cita_id))
-      .map(a => {
-        if (a.fecha) return a.fecha;
-        if (a.fecha_hora) {
-          const parts = a.fecha_hora.split('T');
-          return parts[0] || null;
-        }
-        return null;
-      })
-      .filter(Boolean)
-  )].sort();
-
-  // Filtrar citas: activas (1=Pendiente, 2=Confirmada, 4=Completada, 7=Pagado Parcial, 8=Pagado Completo) y fecha seleccionada
+  // Filtrar citas: Confirmadas (2) y fecha seleccionada
   const filteredAppointments = appointments.filter(apt => {
-    if (![1, 2, 4, 7, 8].includes(apt.estado_cita_id)) return false;
-    
-    // Extraer fecha de múltiples fuentes posibles
-    let aptDate = null;
-    
-    // Fuente 1: campo fecha directo
-    if (apt.fecha) {
-      aptDate = apt.fecha;
-    }
-    // Fuente 2: fecha_hora en formato ISO (2026-05-14T09:00:00)
-    else if (apt.fecha_hora) {
-      const parts = apt.fecha_hora.split('T');
-      if (parts[0]) aptDate = parts[0];
-    }
-    
-    // Normalizar comparación de fechas
-    if (!aptDate) return false;
-    
+    if (apt.estado_cita_id !== 2) return false;
+    const aptDate = apt.fecha_hora?.split('T')[0];
     return aptDate === selectedDate;
   });
-
-  // Obtener la fecha de hoy para fallback
-  const todayStr = new Date().toISOString().split('T')[0];
 
   // Cargar expedientes clínicos del médico
   useEffect(() => {
@@ -156,14 +128,14 @@ const loadData = async () => {
       try {
         const records = await apiClient.get<any[]>('/clinical-history/', true);
         setMedicalRecords(Array.isArray(records) ? records : []);
-      } catch {
+      } catch (error) {
         // Silently handle error
       }
     };
     loadRecords();
   }, []);
 
-  const [newRecord, setNewRecord] = useState<any>({
+  const [newRecord, setNewRecord] = useState<Partial<MedicalRecord>>({
     currentDentalTreatment: '',
     currentMedicalTreatment: '',
     prescribedMedications: '',
@@ -202,226 +174,46 @@ const loadData = async () => {
       prosthodontics: false,
       other: '',
     },
-    clinicalHistory: { physicalState: 'good', dentalState: 'good' },
-    pathologicalHistory: { tonsillitis: false, adenoids: false, herpes: false, flu: false, respiratoryProblems: false },
-    nonPathologicalHistory: { lip: false, tongue: false, objects: false, finger: false, other: '' },
-    habitFrequency: '',
-    habitDuration: '',
-    habitIntensity: '',
-    receivedMedicalAttention: false,
-    medicalAttentionCause: '',
-    faceExam: { form: '', profile: '', ears: '', tic: '', rictus: '', bipupilarLine: '' },
-    holdawayLine: { labialMusculature: '', mentonianHyperactivity: false },
-    oralExam: {
-      molarRelation: '', canineRelation: '', incisalRelation: '',
-      overJet: '', overBite: '', openBite: '', midline: '',
-      absentTeeth: '', malformedTeeth: '', teethWithCavities: '',
-      temporaryTeeth: '', posteriorCrossbite: '', brushingTechnique: '', periodontalState: '',
-    },
-    radiographicExam: {
-      cephalography: '', orthoradial: '', palmar: '', occlusal: '',
-      oblique: '', orthopantography: '', mesioradial: '',
-      congenitalAbsence: '', supernumerary: '', cysts: '',
-      periapicalLesions: '', inclusions: '', radicularResorption: '',
-      thirdMolars: '', dwarfRoots: '', abnormalRoots: '',
-    },
-    planTratamiento: {
-      diagnostico: '',
-      procedimientos: [{ descripcion: '', costo: 0 }],
-      costo_total_estimado: 0,
-      notas: '',
-      estado: 'pendiente',
-    },
   });
 
-  // Pre-cargar expediente existente al seleccionar paciente en el diálogo
-  useEffect(() => {
-    if (!isRecordDialogOpen || !selectedPatientId) return;
-    const loadExisting = async () => {
-      try {
-        const records = await apiClient.get<any[]>(`/expedientes/?paciente_id=${selectedPatientId}`, true);
-        if (records && records.length > 0) {
-          const datos = records[0].datos || {};
-          setNewRecord((prev: any) => ({
-            ...prev,
-            ...datos,
-            hardTissues: datos.hardTissues || prev.hardTissues,
-            softTissues: datos.softTissues || prev.softTissues,
-            habits: datos.habits || prev.habits,
-            personalDiseases: datos.personalDiseases || prev.personalDiseases,
-            consultReason: datos.consultReason || prev.consultReason,
-            clinicalHistory: datos.clinicalHistory || prev.clinicalHistory,
-            pathologicalHistory: datos.pathologicalHistory || prev.pathologicalHistory,
-            nonPathologicalHistory: datos.nonPathologicalHistory || prev.nonPathologicalHistory,
-            faceExam: datos.faceExam || prev.faceExam,
-            holdawayLine: datos.holdawayLine || prev.holdawayLine,
-            oralExam: datos.oralExam || prev.oralExam,
-            radiographicExam: datos.radiographicExam || prev.radiographicExam,
-            planTratamiento: datos.planTratamiento || prev.planTratamiento,
-          }));
-        }
-      } catch {
-        // No existe expediente aún — mantener valores por defecto
-      }
-    };
-    loadExisting();
-  }, [isRecordDialogOpen, selectedPatientId]);
-
-  const handleCreateRecord = async () => {
+  const handleCreateRecord = () => {
     if (!selectedPatientId) {
       toast.error('Selecciona un paciente');
       return;
     }
 
-    try {
-      const payload = {
-        medico_id: empleadoId,
-        datos: {
-          currentDentalTreatment: newRecord.currentDentalTreatment,
-          currentMedicalTreatment: newRecord.currentMedicalTreatment,
-          prescribedMedications: newRecord.prescribedMedications,
-          oralHygiene: newRecord.oralHygiene,
-          diet: newRecord.diet,
-          allergies: newRecord.allergies,
-          observations: newRecord.observations,
-          hardTissues: newRecord.hardTissues,
-          softTissues: newRecord.softTissues,
-          habits: newRecord.habits,
-          personalDiseases: newRecord.personalDiseases,
-          consultReason: newRecord.consultReason,
-          clinicalHistory: newRecord.clinicalHistory,
-          pathologicalHistory: newRecord.pathologicalHistory,
-          nonPathologicalHistory: newRecord.nonPathologicalHistory,
-          habitFrequency: newRecord.habitFrequency,
-          habitDuration: newRecord.habitDuration,
-          habitIntensity: newRecord.habitIntensity,
-          receivedMedicalAttention: newRecord.receivedMedicalAttention,
-          medicalAttentionCause: newRecord.medicalAttentionCause,
-          faceExam: newRecord.faceExam,
-          holdawayLine: newRecord.holdawayLine,
-          oralExam: newRecord.oralExam,
-          radiographicExam: newRecord.radiographicExam,
-          planTratamiento: newRecord.planTratamiento,
-        },
-      };
+    const patient = patients.find((p) => p.id === selectedPatientId);
+    if (!patient) return;
 
-      await apiClient.put(`/expedientes/by-patient/${selectedPatientId}`, payload, true);
+    const record: MedicalRecord = {
+      id: (medicalRecords.length + 1).toString(),
+      patientId: patient.id,
+      patientName: patient.name,
+      createdDate: getLocalDateString(),
+      startDate: getLocalDateString(),
+      address: patient.address,
+      phone: patient.phone,
+      occupation: patient.occupation,
+      age: patient.age,
+      reference: 'Sistema',
+      sex: patient.sex,
+      color: 'Normal',
+      assignedDoctor: user?.name || '',
+      appointmentHistory: [],
+      ...newRecord,
+    } as MedicalRecord;
 
-      setIsRecordDialogOpen(false);
-      setSelectedPatientId('');
-      setNewRecord({
-        currentDentalTreatment: '',
-        currentMedicalTreatment: '',
-        prescribedMedications: '',
-        oralHygiene: '',
-        diet: '',
-        allergies: '',
-        observations: '',
-        hardTissues: { enamel: '', root: '', dentin: '', bone: '' },
-        softTissues: { gum: '', epithelialInsertion: '', pulp: '', palate: '', cheeks: '' },
-        habits: {
-          bruxism: false,
-          muscularContractions: false,
-          biteHabits: '',
-          sucking: { lips: false, tongue: false, fingers: false },
-        },
-        personalDiseases: {
-          cardiovascular: '', nervousSystem: '', respiratory: '',
-          hemorrhagicTendency: '', labTests: '', renal: '',
-          diabetes: '', arthritis: '', digestive: '', generalState: '',
-        },
-        consultReason: {
-          emergency: false, review: false, caries: false, odontoxesis: false,
-          bridge: false, extraction: false, amalgams: false, prosthodontics: false, other: '',
-        },
-        clinicalHistory: { physicalState: 'good', dentalState: 'good' },
-        pathologicalHistory: { tonsillitis: false, adenoids: false, herpes: false, flu: false, respiratoryProblems: false },
-        nonPathologicalHistory: { lip: false, tongue: false, objects: false, finger: false, other: '' },
-        habitFrequency: '', habitDuration: '', habitIntensity: '',
-        receivedMedicalAttention: false, medicalAttentionCause: '',
-        faceExam: { form: '', profile: '', ears: '', tic: '', rictus: '', bipupilarLine: '' },
-        holdawayLine: { labialMusculature: '', mentonianHyperactivity: false },
-        oralExam: {
-          molarRelation: '', canineRelation: '', incisalRelation: '',
-          overJet: '', overBite: '', openBite: '', midline: '',
-          absentTeeth: '', malformedTeeth: '', teethWithCavities: '',
-          temporaryTeeth: '', posteriorCrossbite: '', brushingTechnique: '', periodontalState: '',
-        },
-        radiographicExam: {
-          cephalography: '', orthoradial: '', palmar: '', occlusal: '',
-          oblique: '', orthopantography: '', mesioradial: '',
-          congenitalAbsence: '', supernumerary: '', cysts: '',
-          periapicalLesions: '', inclusions: '', radicularResorption: '',
-          thirdMolars: '', dwarfRoots: '', abnormalRoots: '',
-        },
-        planTratamiento: {
-          diagnostico: '',
-          procedimientos: [{ descripcion: '', costo: 0 }],
-          costo_total_estimado: 0,
-          notas: '',
-          estado: 'pendiente',
-        },
-      });
-      toast.success('Expediente guardado exitosamente');
-    } catch (error: any) {
-      toast.error('Error al guardar expediente: ' + (error.message || 'Error desconocido'));
-    }
+    setMedicalRecords([...medicalRecords, record]);
+    setIsRecordDialogOpen(false);
+    setSelectedPatientId('');
+    toast.success('Expediente creado exitosamente');
   };
 
-  const handleViewRecord = async (patientId: string, servicioId?: number) => {
-    setViewingServiceId(servicioId || 0);
+  const handleViewRecord = async (patientId: string) => {
     try {
-      const records = await apiClient.get<any[]>(`/expedientes/?paciente_id=${patientId}`, true);
-      if (records && records.length > 0) {
-        const expediente = records[0];
-        const patient = patients.find((p) => p.id === parseInt(patientId));
-
-        const record: MedicalRecord = {
-          id: expediente.id.toString(),
-          patientId: patientId,
-          patientName: patient?.usuario_nombre || `Paciente #${patientId}`,
-          createdDate: expediente.fecha_creacion?.split('T')[0] || '',
-          startDate: expediente.fecha_creacion?.split('T')[0] || '',
-          address: patient?.direccion || '',
-          phone: patient?.usuario_telefono || '',
-          occupation: patient?.ocupacion || '',
-          age: patient?.fecha_nacimiento ? Math.floor((Date.now() - new Date(patient.fecha_nacimiento).getTime()) / 31557600000) : 0,
-          reference: 'Sistema',
-          sex: patient?.sexo || 'N/A',
-          colony: patient?.ciudad || '',
-          delegation: patient?.estado || '',
-          postalCode: patient?.codigo_postal || '',
-          assignedDoctor: user?.name || '',
-          clinicalHistory: expediente.datos?.clinicalHistory || { physicalState: 'good', dentalState: 'good' },
-          pathologicalHistory: expediente.datos?.pathologicalHistory || {
-            tonsillitis: false, adenoids: false, herpes: false, flu: false, respiratoryProblems: false,
-          },
-          nonPathologicalHistory: expediente.datos?.nonPathologicalHistory || { lip: false, tongue: false, objects: false, finger: false, other: '' },
-          habitFrequency: expediente.datos?.habitFrequency || '',
-          habitDuration: expediente.datos?.habitDuration || '',
-          habitIntensity: expediente.datos?.habitIntensity || '',
-          receivedMedicalAttention: expediente.datos?.receivedMedicalAttention || false,
-          medicalAttentionCause: expediente.datos?.medicalAttentionCause || '',
-          faceExam: expediente.datos?.faceExam || { form: '', profile: '', ears: '', tic: '', rictus: '', bipupilarLine: '' },
-          holdawayLine: expediente.datos?.holdawayLine || { labialMusculature: '', mentonianHyperactivity: false },
-          oralExam: expediente.datos?.oralExam || {
-            molarRelation: '', canineRelation: '', incisalRelation: '',
-            overJet: '', overBite: '', openBite: '', midline: '',
-            absentTeeth: '', malformedTeeth: '', teethWithCavities: '',
-            temporaryTeeth: '', posteriorCrossbite: '', brushingTechnique: '', periodontalState: '',
-          },
-          radiographicExam: expediente.datos?.radiographicExam || {
-            cephalography: '', orthoradial: '', palmar: '', occlusal: '',
-            oblique: '', orthopantography: '', mesioradial: '',
-            congenitalAbsence: '', supernumerary: '', cysts: '',
-            periapicalLesions: '', inclusions: '', radicularResorption: '',
-            thirdMolars: '', dwarfRoots: '', abnormalRoots: '',
-          },
-          observations: expediente.datos?.observations || JSON.stringify(expediente.datos || {}, null, 2),
-          appointmentHistory: [],
-        };
-
-        setViewingRecord(record);
+      const record = await apiClient.get<any[]>(`/clinical-history/?paciente_id=${patientId}`, true);
+      if (record && record.length > 0) {
+        setViewingRecord(record[0]);
         setIsViewDialogOpen(true);
       } else {
         toast.error('Este paciente no tiene expediente');
@@ -431,96 +223,13 @@ const loadData = async () => {
     }
   };
 
-  const handleSaveClinicalHistory = async () => {
-    if (!selectedPatientId) {
-      toast.error('Selecciona un paciente');
-      return;
-    }
-    setIsSavingClinicalHistory(true);
-    try {
-      const pacienteId = parseInt(selectedPatientId);
-      const fechaHoy = new Date().toISOString().split('T')[0];
-
-      // Check if record already exists for this patient+tipo
-      const existingRecords = await apiClient.get<any[]>(`/clinical-history/?paciente_id=${pacienteId}`, true);
-      const existingRecord = Array.isArray(existingRecords) ? existingRecords.find(
-        (r: any) => r.tipo_antecedente_id === 1
-      ) : null;
-
-      const descripcion = JSON.stringify(clinicalHistoryData);
-      const notas = clinicalHistoryData.atencion_medica || '';
-
-      if (existingRecord) {
-        await apiClient.put(`/clinical-history/${existingRecord.id}`, {
-          descripcion,
-          notas,
-        }, true);
-        toast.success('Historial clínico actualizado exitosamente');
-      } else {
-        await apiClient.post('/clinical-history/', {
-          paciente_id: pacienteId,
-          tipo_antecedente_id: 1,
-          descripcion,
-          fecha_diagnostico: fechaHoy,
-          notas,
-          activo: true,
-        }, true);
-        toast.success('Historial clínico guardado exitosamente');
-      }
-      setIsClinicalHistoryOpen(false);
-      setSelectedPatientId('');
-      setClinicalHistoryData({});
-      setExistingClinicalHistory(null);
-    } catch (error: any) {
-      toast.error(`Error al guardar: ${error.message}`);
-    } finally {
-      setIsSavingClinicalHistory(false);
-    }
-  };
-
-  const handleLoadClinicalHistory = async (patientId: string) => {
-    if (!patientId) {
-      setClinicalHistoryData({});
-      setExistingClinicalHistory(null);
-      return;
-    }
-    try {
-      const records = await apiClient.get<any[]>(`/clinical-history/?paciente_id=${patientId}`, true);
-      const record = Array.isArray(records) ? records.find(
-        (r: any) => r.tipo_antecedente_id === 1
-      ) : null;
-      if (record) {
-        setExistingClinicalHistory(record);
-        try {
-          const parsed = JSON.parse(record.descripcion || '{}');
-          setClinicalHistoryData(parsed);
-        } catch {
-          setClinicalHistoryData({});
-        }
-      } else {
-        setClinicalHistoryData({});
-        setExistingClinicalHistory(null);
-      }
-    } catch {
-      setClinicalHistoryData({});
-      setExistingClinicalHistory(null);
-    }
-  };
-
   const handleAttendAppointment = async (appointment: BackendAppointment) => {
     try {
-      await apiClient.put(`/appointments/${appointment.id}`, {
-        estado_cita_id: 4
+      await apiClient.put(`/appointments/${appointment.id}/status`, {
+        estado_cita_id: 3 // 3 = en atención
       }, true);
-      toast.success('Cita completada');
-      
-      // Obtener datos completos del paciente desde el backend
-      const patientData = await apiClient.get<BackendPatient>(`/patients/${appointment.paciente_id}`, true);
-      
-      setAttendingAppointment({
-        ...appointment,
-        _patientData: patientData
-      });
+      toast.success('Cita Iniciada');
+      setAttendingAppointment(appointment);
     } catch (error: any) {
       toast.error(error?.response?.data?.detail || 'Error al iniciar atención');
     }
@@ -528,8 +237,8 @@ const loadData = async () => {
 
   const handleCancelAppointment = async (id: number) => {
     try {
-      await apiClient.put(`/appointments/${id}`, {
-        estado_cita_id: 5
+      await apiClient.put(`/appointments/${id}/status`, {
+        estado_cita_id: 4 // 4 = cancelada
       }, true);
       toast.success('Cita cancelada');
       // Recargar citas
@@ -571,39 +280,40 @@ const loadData = async () => {
     }
   };
 
+  const handleCreateAppointmentSubmit = async () => {
+    if (!newAppointment.patientId || !newAppointment.serviceId || !newAppointment.date || !newAppointment.time) {
+      toast.error('Completa todos los campos');
+      return;
+    }
+    try {
+      const fecha_hora = `${newAppointment.date}T${newAppointment.time}:00`;
+      await apiClient.post('/appointments/', {
+        paciente_id: parseInt(newAppointment.patientId),
+        empleado_id: empleadoId,
+        servicio_id: parseInt(newAppointment.serviceId),
+        sucursal_id: 1,
+        estado_cita_id: 2,  // Confirmada
+        fecha_hora,
+        duracion_minutos: 30,
+      }, true);
+      toast.success('Cita creada');
+      setIsCreateAppointmentOpen(false);
+      const data = await apiClient.get<BackendAppointment[]>(`/appointments/?empleado_id=${empleadoId}`, true);
+      setAppointments(Array.isArray(data) ? data : []);
+      setNewAppointment({ patientId: '', serviceId: '', workCenterId: '', date: '', time: '' });
+    } catch (error: any) {
+      toast.error(error?.response?.data?.detail || 'Error al crear');
+    }
+  };
+
   // If attending a patient
   if (attendingAppointment) {
-    // Use patient data from API or fall back to local patients array
-    const patientData = (attendingAppointment as any)._patientData || patients.find((p) => p.id === attendingAppointment.paciente_id);
-    if (patientData) {
-      // Map BackendPatient to Patient
-      const mappedPatient: Patient = {
-        id: patientData.id.toString(),
-        name: patientData.usuario_nombre || 'Sin nombre',
-        email: patientData.usuario_email || '',
-        phone: patientData.usuario_telefono || '',
-        age: patientData.fecha_nacimiento ? Math.floor((Date.now() - new Date(patientData.fecha_nacimiento).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : undefined,
-        address: patientData.direccion || '',
-        registrationDate: patientData.fecha_creacion || new Date().toISOString(),
-      };
-      // Map BackendAppointment to Appointment
-      const mappedAppointment: Appointment = {
-        id: attendingAppointment.id.toString(),
-        patientId: attendingAppointment.paciente_id.toString(),
-        patientName: attendingAppointment.paciente_nombre || '',
-        serviceId: attendingAppointment.servicio_id.toString(),
-        serviceName: attendingAppointment.servicio_nombre || '',
-        workCenterId: attendingAppointment.sucursal_id.toString(),
-        workCenterName: attendingAppointment.sucursal_nombre || '',
-        date: attendingAppointment.fecha_hora?.split('T')[0] || '',
-        time: attendingAppointment.fecha_hora?.split('T')[1]?.slice(0, 5) || '',
-        status: 'confirmed' as const,
-      };
+    const patient = patients.find((p) => p.id === attendingAppointment.paciente_id);
+    if (patient) {
       return (
         <PatientDiagnosisView
-          patient={mappedPatient}
-          appointment={mappedAppointment}
-          citaId={attendingAppointment.id}
+          patient={patient}
+          appointment={attendingAppointment}
           onBack={handleBackFromDiagnosis}
         />
       );
@@ -618,7 +328,55 @@ const loadData = async () => {
           <p className="text-gray-600">Dr. {user?.name}</p>
         </div>
         <div className="flex gap-3">
-          
+          <Dialog open={isCreateAppointmentOpen} onOpenChange={setIsCreateAppointmentOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="border-sky-500 text-sky-600 hover:bg-sky-50">
+                <CalendarPlus className="mr-2" size={20} />
+                Nueva Cita
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle className="text-sky-600">Crear Nueva Cita</DialogTitle>
+                <DialogDescription>Selecciona paciente, servicio y horario</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Paciente</Label>
+                  <Select value={newAppointment.patientId} onValueChange={(v) => setNewAppointment({...newAppointment, patientId: v})}>
+                    <SelectTrigger><SelectValue placeholder="Seleccionar paciente" /></SelectTrigger>
+                    <SelectContent>
+                      {patients.map((p) => (
+                        <SelectItem key={p.id} value={p.id.toString()}>{p.usuario_nombre}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Servicio</Label>
+                  <Select value={newAppointment.serviceId} onValueChange={(v) => setNewAppointment({...newAppointment, serviceId: v})}>
+                    <SelectTrigger><SelectValue placeholder="Seleccionar servicio" /></SelectTrigger>
+                    <SelectContent>
+                      {services.map((s) => (
+                        <SelectItem key={s.id} value={s.id.toString()}>{s.nombre}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Fecha</Label>
+                    <Input type="date" value={newAppointment.date} onChange={(e) => setNewAppointment({...newAppointment, date: e.target.value})} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Hora</Label>
+                    <Input type="time" value={newAppointment.time} onChange={(e) => setNewAppointment({...newAppointment, time: e.target.value})} />
+                  </div>
+                </div>
+                <Button onClick={handleCreateAppointmentSubmit} className="w-full bg-sky-500 hover:bg-sky-600">Crear Cita</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
           <Dialog open={isClinicalHistoryOpen} onOpenChange={setIsClinicalHistoryOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" className="border-sky-500 text-sky-600 hover:bg-sky-50">
@@ -631,66 +389,50 @@ const loadData = async () => {
                 <DialogTitle className="text-sky-600 text-sm">Historial Clínico del Paciente - Ortodoncia</DialogTitle>
                 <DialogDescription className="sr-only">Formulario para llenar el historial clínico completo del paciente</DialogDescription>
               </DialogHeader>
-              <div className="overflow-y-auto h-[85vh] pr-4 scrollbar-thin">
+              <ScrollArea className="h-[85vh] pr-4">
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label className="text-xs">Seleccionar Paciente ({patients.length} disponibles)</Label>
+                    <Label className="text-xs">Seleccionar Paciente</Label>
                     <select
                       className="w-full px-3 py-2 text-sm border border-sky-200 rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500"
                       value={selectedPatientId}
-                      onChange={(e) => {
-                        setSelectedPatientId(e.target.value);
-                        handleLoadClinicalHistory(e.target.value);
-                      }}
+                      onChange={(e) => setSelectedPatientId(e.target.value)}
                     >
                       <option value="">Seleccionar...</option>
                       {patients.map((patient) => (
                         <option key={patient.id} value={patient.id}>
-                          {patient.usuario_nombre || `Paciente #${patient.id}`} - Exp: {patient.numero_expediente}
+                          {patient.name} - {patient.phone}
                         </option>
                       ))}
                     </select>
                   </div>
 
                   {selectedPatientId && (() => {
-                    const patient = patients.find((p) => p.id === parseInt(selectedPatientId));
+                    const patient = patients.find((p) => p.id === selectedPatientId);
                     
                     if (!patient) return null;
-
-                    const patientForForm = {
-                      id: patient.id.toString(),
-                      name: patient.usuario_nombre || 'Paciente',
-                      age: patient.fecha_nacimiento ? Math.floor((Date.now() - new Date(patient.fecha_nacimiento).getTime()) / 31557600000) : 0,
-                      sex: patient.sexo || 'N/A',
-                      address: patient.direccion || '',
-                      colony: patient.ciudad || '',
-                      municipality: patient.estado || '',
-                      postalCode: patient.codigo_postal || '',
-                      phone: patient.usuario_telefono || '',
-                      occupation: patient.ocupacion || '',
-                      tutor: patient.tutor_nombre || '',
-                    };
                     
                     return (
                       <div className="space-y-4">
                         <ClinicalHistoryForm
-                          patient={patientForForm}
+                          patient={patient}
                           doctorName={user?.name || ''}
-                          onDataChange={setClinicalHistoryData}
-                          initialData={existingClinicalHistory || undefined}
                         />
                         <Button
-                          onClick={handleSaveClinicalHistory}
-                          disabled={isSavingClinicalHistory}
+                          onClick={() => {
+                            toast.success('Historial clínico guardado exitosamente');
+                            setIsClinicalHistoryOpen(false);
+                            setSelectedPatientId('');
+                          }}
                           className="w-full bg-sky-500 hover:bg-sky-600 text-sm"
                         >
-                          {isSavingClinicalHistory ? 'Guardando...' : (existingClinicalHistory ? 'Actualizar Historial Clínico' : 'Guardar e Imprimir Historial Clínico')}
+                          Guardar e Imprimir Historial Clínico
                         </Button>
                       </div>
                     );
                   })()}
                 </div>
-              </div>
+              </ScrollArea>
             </DialogContent>
           </Dialog>
 
@@ -706,7 +448,7 @@ const loadData = async () => {
                 <DialogTitle className="text-sky-600">Consentimiento Informado</DialogTitle>
                 <DialogDescription className="sr-only">Formulario de consentimiento informado del paciente para tratamientos estéticos</DialogDescription>
               </DialogHeader>
-              <div className="overflow-y-auto h-[75vh] pr-4 scrollbar-thin">
+              <ScrollArea className="h-[75vh] pr-4">
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label>Seleccionar Paciente</Label>
@@ -718,39 +460,26 @@ const loadData = async () => {
                       <option value="">Seleccionar...</option>
                       {patients.map((patient) => (
                         <option key={patient.id} value={patient.id}>
-                          {patient.usuario_nombre || `Paciente #${patient.id}`} - Exp: {patient.numero_expediente}
+                          {patient.name} - {patient.phone}
                         </option>
                       ))}
                     </select>
                   </div>
 
                   {selectedPatientId && (() => {
-                    const patient = patients.find((p) => p.id === parseInt(selectedPatientId));
+                    const patient = patients.find((p) => p.id === selectedPatientId);
                     
                     return (
                       <div className="space-y-4">
                         <ConsentForm
-                          patientName={patient?.usuario_nombre || ''}
+                          patientName={patient?.name || ''}
                           doctorName={user?.name || ''}
                         />
                         <Button
-                          onClick={async () => {
-                            if (!selectedPatientId) return;
-                            try {
-                              const today = new Date();
-                              const dateStr = today.toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' });
-                              const texto = `Consentimiento para Tratamiento Cosmético (Incluye Blanqueamiento y/o Carillas).\nPaciente: ${patient?.usuario_nombre || ''}\nDoctor: ${user?.name || ''}\nFecha: ${dateStr}\n\nEl paciente declara haber sido informado de los riesgos, beneficios y alternativas del tratamiento, autorizando su realización de forma voluntaria.`;
-                              await apiClient.post('/consentimientos/', {
-                                paciente_id: parseInt(selectedPatientId),
-                                servicio_id: 1,
-                                texto_consentimiento: texto,
-                              }, true);
-                              toast.success('Consentimiento registrado exitosamente');
-                              setIsConsentFormOpen(false);
-                              setSelectedPatientId('');
-                            } catch (error: any) {
-                              toast.error('Error al guardar consentimiento: ' + (error.message || ''));
-                            }
+                          onClick={() => {
+                            toast.success('Consentimiento registrado exitosamente');
+                            setIsConsentFormOpen(false);
+                            setSelectedPatientId('');
                           }}
                           className="w-full bg-sky-500 hover:bg-sky-600"
                         >
@@ -760,7 +489,7 @@ const loadData = async () => {
                     );
                   })()}
                 </div>
-              </div>
+              </ScrollArea>
             </DialogContent>
           </Dialog>
 
@@ -776,7 +505,7 @@ const loadData = async () => {
                 <DialogTitle className="text-sky-600">Nuevo Expediente Dental</DialogTitle>
                 <DialogDescription className="sr-only">Formulario para crear un nuevo expediente dental del paciente</DialogDescription>
               </DialogHeader>
-              <div className="overflow-y-auto h-[70vh] pr-4 scrollbar-thin">
+              <ScrollArea className="h-[70vh] pr-4">
                 <div className="space-y-6">
                   {/* Patient Selection */}
                   <div className="space-y-2">
@@ -789,20 +518,18 @@ const loadData = async () => {
                       <option value="">Seleccionar...</option>
                       {patients.map((patient) => (
                         <option key={patient.id} value={patient.id}>
-                          {patient.usuario_nombre || `Paciente #${patient.id}`} - Exp: {patient.numero_expediente}
+                          {patient.name} - {patient.phone}
                         </option>
                       ))}
                     </select>
                   </div>
 
                   <Tabs defaultValue="general" className="w-full">
-                    <TabsList className="grid w-full grid-cols-6">
+                    <TabsList className="grid w-full grid-cols-4">
                       <TabsTrigger value="general">General</TabsTrigger>
                       <TabsTrigger value="tissues">Tejidos</TabsTrigger>
                       <TabsTrigger value="habits">Hábitos</TabsTrigger>
-                      <TabsTrigger value="antecedentes">Antecedentes</TabsTrigger>
-                      <TabsTrigger value="exam">Examen Clínico</TabsTrigger>
-                      <TabsTrigger value="plan">Plan Tratamiento</TabsTrigger>
+                      <TabsTrigger value="diseases">Enfermedades</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="general" className="space-y-4">
@@ -908,26 +635,6 @@ const loadData = async () => {
                           rows={4}
                           className="border-sky-200"
                         />
-                      </div>
-
-                      <div>
-                        <h3 className="text-sky-600 mb-3">Antecedentes Personales Patológicos</h3>
-                        <div className="grid md:grid-cols-2 gap-4">
-                          {Object.entries({
-                            cardiovascular: 'Cardiovascular', nervousSystem: 'Sistema Nervioso',
-                            respiratory: 'Respiratorio', hemorrhagicTendency: 'Propensión Hemorrágica',
-                            labTests: 'Pruebas de Laboratorio', renal: 'Renal',
-                            diabetes: 'Diabetes', arthritis: 'Artritis',
-                            digestive: 'Digestivo', generalState: 'Estado General',
-                          }).map(([key, label]) => (
-                            <div key={key} className="space-y-2">
-                              <Label>{label}</Label>
-                              <Input value={(newRecord.personalDiseases as any)?.[key] || ''}
-                                onChange={(e) => setNewRecord({...newRecord, personalDiseases: {...newRecord.personalDiseases, [key]: e.target.value}})}
-                                className="border-sky-200" />
-                            </div>
-                          ))}
-                        </div>
                       </div>
                     </TabsContent>
 
@@ -1187,299 +894,41 @@ const loadData = async () => {
                       </div>
                     </TabsContent>
 
-                    <TabsContent value="antecedentes" className="space-y-4">
-                      <div>
-                        <h3 className="text-sky-600 mb-3">Antecedentes Patológicos</h3>
-                        <div className="flex flex-wrap gap-4">
-                          {Object.entries({
-                            tonsillitis: 'Amigdalitis', adenoids: 'Adenoides', herpes: 'Herpes',
-                            flu: 'Gripe', respiratoryProblems: 'Problemas Respiratorios',
-                          }).map(([key, label]) => (
-                            <div key={key} className="flex items-center space-x-2">
-                              <Checkbox
-                                id={`path-${key}`}
-                                checked={(newRecord.pathologicalHistory as any)?.[key]}
-                                onCheckedChange={(checked) =>
-                                  setNewRecord({
-                                    ...newRecord,
-                                    pathologicalHistory: {
-                                      ...newRecord.pathologicalHistory,
-                                      [key]: checked,
-                                    },
-                                  })
-                                }
-                              />
-                              <Label htmlFor={`path-${key}`} className="text-sm cursor-pointer">{label}</Label>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div>
-                        <h3 className="text-sky-600 mb-3">Antecedentes No Patológicos</h3>
-                        <div className="flex flex-wrap gap-4">
-                          {Object.entries({
-                            lip: 'Labio', tongue: 'Lengua', objects: 'Objetos', finger: 'Dedo',
-                          }).map(([key, label]) => (
-                            <div key={key} className="flex items-center space-x-2">
-                              <Checkbox
-                                id={`nonpath-${key}`}
-                                checked={(newRecord.nonPathologicalHistory as any)?.[key]}
-                                onCheckedChange={(checked) =>
-                                  setNewRecord({
-                                    ...newRecord,
-                                    nonPathologicalHistory: {
-                                      ...newRecord.nonPathologicalHistory,
-                                      [key]: checked,
-                                    },
-                                  })
-                                }
-                              />
-                              <Label htmlFor={`nonpath-${key}`} className="text-sm cursor-pointer">{label}</Label>
-                            </div>
-                          ))}
-                          <div className="flex items-center space-x-2">
-                            <Label className="text-sm">Otro:</Label>
+                    <TabsContent value="diseases" className="space-y-4">
+                      <div className="grid md:grid-cols-2 gap-4">
+                        {Object.entries({
+                          cardiovascular: 'Cardiovascular',
+                          nervousSystem: 'Sistema Nervioso',
+                          respiratory: 'Respiratorio',
+                          hemorrhagicTendency: 'Propensión Hemorrágica',
+                          labTests: 'Pruebas de Laboratorio',
+                          renal: 'Renal',
+                          diabetes: 'Diabetes',
+                          arthritis: 'Artritis',
+                          digestive: 'Digestivo',
+                          generalState: 'Estado General',
+                        }).map(([key, label]) => (
+                          <div key={key} className="space-y-2">
+                            <Label>{label}</Label>
                             <Input
-                              value={newRecord.nonPathologicalHistory?.other || ''}
+                              value={
+                                newRecord.personalDiseases?.[
+                                  key as keyof typeof newRecord.personalDiseases
+                                ]
+                              }
                               onChange={(e) =>
                                 setNewRecord({
                                   ...newRecord,
-                                  nonPathologicalHistory: { ...newRecord.nonPathologicalHistory, other: e.target.value },
+                                  personalDiseases: {
+                                    ...newRecord.personalDiseases!,
+                                    [key]: e.target.value,
+                                  },
                                 })
                               }
-                              className="border-sky-200 max-w-[200px]"
+                              className="border-sky-200"
                             />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="grid md:grid-cols-3 gap-4">
-                        <div className="space-y-2">
-                          <Label>Frecuencia del Hábito</Label>
-                          <Input value={newRecord.habitFrequency} onChange={(e) => setNewRecord({...newRecord, habitFrequency: e.target.value})} className="border-sky-200" />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Duración del Hábito</Label>
-                          <Input value={newRecord.habitDuration} onChange={(e) => setNewRecord({...newRecord, habitDuration: e.target.value})} className="border-sky-200" />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Intensidad del Hábito</Label>
-                          <Input value={newRecord.habitIntensity} onChange={(e) => setNewRecord({...newRecord, habitIntensity: e.target.value})} className="border-sky-200" />
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>¿Recibió atención médica en el último año?</Label>
-                        <div className="flex gap-4">
-                          <div className="flex items-center space-x-2">
-                            <Checkbox
-                              id="med-attention-yes"
-                              checked={newRecord.receivedMedicalAttention === true}
-                              onCheckedChange={() => setNewRecord({...newRecord, receivedMedicalAttention: true})}
-                            />
-                            <Label htmlFor="med-attention-yes" className="cursor-pointer">Sí</Label>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Checkbox
-                              id="med-attention-no"
-                              checked={newRecord.receivedMedicalAttention === false}
-                              onCheckedChange={() => setNewRecord({...newRecord, receivedMedicalAttention: false})}
-                            />
-                            <Label htmlFor="med-attention-no" className="cursor-pointer">No</Label>
-                          </div>
-                        </div>
-                        {newRecord.receivedMedicalAttention && (
-                          <div className="space-y-2">
-                            <Label>Causa</Label>
-                            <Input value={newRecord.medicalAttentionCause} onChange={(e) => setNewRecord({...newRecord, medicalAttentionCause: e.target.value})} className="border-sky-200" />
-                          </div>
-                        )}
-                      </div>
-                    </TabsContent>
-
-                    <TabsContent value="exam" className="space-y-4">
-                      <div>
-                        <h3 className="text-sky-600 mb-3">Examen de la Cara</h3>
-                        <div className="grid md:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label>Forma</Label>
-                            <div className="flex gap-4">
-                              {[{value:'symmetric',label:'Simétrica'},{value:'asymmetric',label:'Asimétrica'}].map(o => (
-                                <div key={o.value} className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id={`face-form-${o.value}`}
-                                    checked={newRecord.faceExam?.form === o.value}
-                                    onCheckedChange={() => setNewRecord({...newRecord, faceExam: {...newRecord.faceExam, form: o.value as any}})}
-                                  />
-                                  <Label htmlFor={`face-form-${o.value}`} className="text-sm cursor-pointer">{o.label}</Label>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Perfil</Label>
-                            <Input value={newRecord.faceExam?.profile || ''} onChange={(e) => setNewRecord({...newRecord, faceExam: {...newRecord.faceExam, profile: e.target.value}})} className="border-sky-200" />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Orejas</Label>
-                            <Input value={newRecord.faceExam?.ears || ''} onChange={(e) => setNewRecord({...newRecord, faceExam: {...newRecord.faceExam, ears: e.target.value}})} className="border-sky-200" />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>TIC</Label>
-                            <Input value={newRecord.faceExam?.tic || ''} onChange={(e) => setNewRecord({...newRecord, faceExam: {...newRecord.faceExam, tic: e.target.value}})} className="border-sky-200" />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Rictus</Label>
-                            <Input value={newRecord.faceExam?.rictus || ''} onChange={(e) => setNewRecord({...newRecord, faceExam: {...newRecord.faceExam, rictus: e.target.value}})} className="border-sky-200" />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Línea Bipupilar</Label>
-                            <Input value={newRecord.faceExam?.bipupilarLine || ''} onChange={(e) => setNewRecord({...newRecord, faceExam: {...newRecord.faceExam, bipupilarLine: e.target.value}})} className="border-sky-200" />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div>
-                        <h3 className="text-sky-600 mb-3">Línea de Holdaway</h3>
-                        <div className="grid md:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label>Musculatura Labial</Label>
-                            <div className="flex gap-4">
-                              {[{value:'weak',label:'Débil'},{value:'normal',label:'Normal'},{value:'strong',label:'Fuerte'}].map(o => (
-                                <div key={o.value} className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id={`holdaway-${o.value}`}
-                                    checked={newRecord.holdawayLine?.labialMusculature === o.value}
-                                    onCheckedChange={() => setNewRecord({...newRecord, holdawayLine: {...newRecord.holdawayLine, labialMusculature: o.value as any}})}
-                                  />
-                                  <Label htmlFor={`holdaway-${o.value}`} className="text-sm cursor-pointer">{o.label}</Label>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Hiperactividad Mentoniana</Label>
-                            <div className="flex gap-4">
-                              {[{value:true,label:'Sí'},{value:false,label:'No'}].map(o => (
-                                <div key={String(o.value)} className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id={`mentonian-${o.value}`}
-                                    checked={newRecord.holdawayLine?.mentonianHyperactivity === o.value}
-                                    onCheckedChange={() => setNewRecord({...newRecord, holdawayLine: {...newRecord.holdawayLine, mentonianHyperactivity: o.value}})}
-                                  />
-                                  <Label htmlFor={`mentonian-${o.value}`} className="text-sm cursor-pointer">{o.label}</Label>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div>
-                        <h3 className="text-sky-600 mb-3">Examen Bucal</h3>
-                        <div className="grid md:grid-cols-2 gap-4">
-                          {[
-                            {key:'molarRelation',label:'Relación Molar'},{key:'canineRelation',label:'Canina'},
-                            {key:'incisalRelation',label:'Incisal'},{key:'overJet',label:'Over Jet (MM)'},
-                            {key:'overBite',label:'Over Bite (MM)'},{key:'openBite',label:'Mordida Abierta (MM)'},
-                            {key:'midline',label:'Línea Media'},{key:'absentTeeth',label:'Dientes Ausentes'},
-                            {key:'malformedTeeth',label:'Malformados'},{key:'teethWithCavities',label:'Con Caries'},
-                            {key:'temporaryTeeth',label:'Temporales'},{key:'posteriorCrossbite',label:'Mordida Cruzada Posterior'},
-                            {key:'brushingTechnique',label:'Técnica de Cepillado'},{key:'periodontalState',label:'Estado Periodontal'},
-                          ].map(({key,label}) => (
-                            <div key={key} className="space-y-2">
-                              <Label>{label}</Label>
-                              <Input value={(newRecord.oralExam as any)?.[key] || ''} onChange={(e) => setNewRecord({...newRecord, oralExam: {...newRecord.oralExam, [key]: e.target.value}})} className="border-sky-200" />
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div>
-                        <h3 className="text-sky-600 mb-3">Examen Radiográfico</h3>
-                        <div className="grid md:grid-cols-2 gap-4">
-                          {[
-                            {key:'cephalography',label:'Cefalografía'},{key:'orthoradial',label:'Ortoradial'},
-                            {key:'palmar',label:'Palmar'},{key:'occlusal',label:'Oclusal'},
-                            {key:'oblique',label:'Oblicua'},{key:'orthopantography',label:'Ortopantografía'},
-                            {key:'mesioradial',label:'Mesioradial'},{key:'congenitalAbsence',label:'Ausencia Congénita'},
-                            {key:'supernumerary',label:'Supernumerarios'},{key:'cysts',label:'Quistes'},
-                            {key:'periapicalLesions',label:'Lesiones Periapicales'},{key:'inclusions',label:'Inclusiones'},
-                            {key:'radicularResorption',label:'Resorción Radicular'},{key:'thirdMolars',label:'Terceros Molares'},
-                            {key:'dwarfRoots',label:'Raíces Enanas'},{key:'abnormalRoots',label:'Raíces Anormales'},
-                          ].map(({key,label}) => (
-                            <div key={key} className="space-y-2">
-                              <Label>{label}</Label>
-                              <Input value={(newRecord.radiographicExam as any)?.[key] || ''} onChange={(e) => setNewRecord({...newRecord, radiographicExam: {...newRecord.radiographicExam, [key]: e.target.value}})} className="border-sky-200" />
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </TabsContent>
-
-                    <TabsContent value="plan" className="space-y-4">
-                      <div className="space-y-2">
-                        <Label>Diagnóstico</Label>
-                        <Textarea value={newRecord.planTratamiento?.diagnostico || ''} onChange={(e) => setNewRecord({...newRecord, planTratamiento: {...newRecord.planTratamiento, diagnostico: e.target.value}})} rows={3} className="border-sky-200" />
-                      </div>
-
-                      <div>
-                        <Label className="mb-2 block">Procedimientos</Label>
-                        {(newRecord.planTratamiento?.procedimientos || []).map((proc: any, idx: number) => (
-                          <div key={idx} className="flex gap-2 mb-2 items-end">
-                            <div className="flex-1">
-                              <Input placeholder="Descripción" value={proc.descripcion} onChange={(e) => {
-                                const procs = [...(newRecord.planTratamiento?.procedimientos || [])];
-                                procs[idx] = {...procs[idx], descripcion: e.target.value};
-                                const total = procs.reduce((s: number, p: any) => s + (Number(p.costo) || 0), 0);
-                                setNewRecord({...newRecord, planTratamiento: {...newRecord.planTratamiento, procedimientos: procs, costo_total_estimado: total}});
-                              }} className="border-sky-200" />
-                            </div>
-                            <div className="w-32">
-                              <Input type="number" placeholder="Costo" value={proc.costo} onChange={(e) => {
-                                const procs = [...(newRecord.planTratamiento?.procedimientos || [])];
-                                procs[idx] = {...procs[idx], costo: Number(e.target.value)};
-                                const total = procs.reduce((s: number, p: any) => s + (Number(p.costo) || 0), 0);
-                                setNewRecord({...newRecord, planTratamiento: {...newRecord.planTratamiento, procedimientos: procs, costo_total_estimado: total}});
-                              }} className="border-sky-200" />
-                            </div>
-                            <Button variant="ghost" size="icon" onClick={() => {
-                              const procs = (newRecord.planTratamiento?.procedimientos || []).filter((_: any, i: number) => i !== idx);
-                              const total = procs.reduce((s: number, p: any) => s + (Number(p.costo) || 0), 0);
-                              setNewRecord({...newRecord, planTratamiento: {...newRecord.planTratamiento, procedimientos: procs, costo_total_estimado: total}});
-                            }}>
-                              <X size={16} />
-                            </Button>
                           </div>
                         ))}
-                        <Button variant="outline" size="sm" className="border-sky-300 text-sky-600" onClick={() => {
-                          const procs = [...(newRecord.planTratamiento?.procedimientos || []), {descripcion: '', costo: 0}];
-                          setNewRecord({...newRecord, planTratamiento: {...newRecord.planTratamiento, procedimientos: procs}});
-                        }}>
-                          <Plus className="mr-1" size={14} /> Agregar Procedimiento
-                        </Button>
-                      </div>
-
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Costo Total Estimado</Label>
-                          <Input value={`$${newRecord.planTratamiento?.costo_total_estimado || 0}`} disabled className="border-sky-200 bg-sky-50 font-bold" />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Estado del Plan</Label>
-                          <select className="w-full px-3 py-2 border border-sky-200 rounded-md" value={newRecord.planTratamiento?.estado || 'pendiente'} onChange={(e) => setNewRecord({...newRecord, planTratamiento: {...newRecord.planTratamiento, estado: e.target.value}})}>
-                            <option value="pendiente">Pendiente</option>
-                            <option value="en_progreso">En Progreso</option>
-                            <option value="completado">Completado</option>
-                            <option value="cancelado">Cancelado</option>
-                          </select>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Notas del Plan</Label>
-                        <Textarea value={newRecord.planTratamiento?.notas || ''} onChange={(e) => setNewRecord({...newRecord, planTratamiento: {...newRecord.planTratamiento, notas: e.target.value}})} rows={3} className="border-sky-200" />
                       </div>
                     </TabsContent>
                   </Tabs>
@@ -1491,7 +940,7 @@ const loadData = async () => {
                     Guardar Expediente
                   </Button>
                 </div>
-              </div>
+              </ScrollArea>
             </DialogContent>
           </Dialog>
         </div>
@@ -1530,7 +979,7 @@ const loadData = async () => {
           {filteredAppointments.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12">
               <Calendar className="text-sky-300 mb-4" size={64} />
-              <p className="text-gray-600">No tienes citas para esta fecha</p>
+              <p className="text-gray-600">No tienes citas confirmadas para esta fecha</p>
               <div className="mt-4 text-sm text-gray-500 text-center bg-yellow-50 p-4 rounded-lg border border-yellow-200">
                 <p className="font-semibold text-yellow-700">DEBUG INFO:</p>
                 <p>User ID: <span className="font-mono">{user?.id}</span></p>
@@ -1553,23 +1002,6 @@ const loadData = async () => {
                           </span>
                         );
                       })}
-                    </div>
-                    
-                  </div>
-                )}
-                {confirmedDates.length > 0 && (
-                  <div className="mt-3 pt-3 border-t border-yellow-200">
-                    <p className="font-semibold text-yellow-700">Fechas con citas confirmadas:</p>
-                    <div className="flex flex-wrap gap-2 justify-center mt-1">
-                      {confirmedDates.map(date => (
-                        <button
-                          key={date}
-                          onClick={() => setSelectedDate(date)}
-                          className="px-3 py-1 bg-green-100 text-green-700 rounded text-xs hover:bg-green-200 transition-colors"
-                        >
-                          {date}
-                        </button>
-                      ))}
                     </div>
                   </div>
                 )}
@@ -1601,7 +1033,7 @@ const loadData = async () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleViewRecord(appointment.paciente_id.toString(), appointment.servicio_id)}
+                        onClick={() => handleViewRecord(appointment.paciente_id.toString())}
                         className="border-sky-300 text-sky-600 hover:bg-sky-50"
                       >
                         <FileText className="mr-2" size={16} />
@@ -1624,64 +1056,12 @@ const loadData = async () => {
             <DialogDescription className="sr-only">Vista completa del expediente dental del paciente</DialogDescription>
           </DialogHeader>
           {viewingRecord && (
-            <div className="overflow-y-auto h-[80vh] pr-4 scrollbar-thin">
-              <PrintableMedicalRecord record={viewingRecord} serviceId={viewingServiceId} />
-              <PatientPhotosViewer patientId={parseInt(viewingRecord.patientId)} />
-            </div>
+            <ScrollArea className="h-[80vh] pr-4">
+              <PrintableMedicalRecord record={viewingRecord} />
+            </ScrollArea>
           )}
         </DialogContent>
       </Dialog>
     </div>
-  );
-}
-
-function PatientPhotosViewer({ patientId }: { patientId: number }) {
-  const [photos, setPhotos] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      try {
-        const consultas = await apiClient.get<any[]>(`/consultations/?paciente_id=${patientId}`, true);
-        const allPhotos: any[] = [];
-        for (const c of consultas) {
-          try {
-            const fotos = await apiClient.get<any[]>(`/consultations/${c.id}/photos/`, true);
-            allPhotos.push(...(Array.isArray(fotos) ? fotos : []));
-          } catch { /* skip */ }
-        }
-        setPhotos(allPhotos);
-      } catch { /* silent */ }
-      setLoading(false);
-    };
-    load();
-  }, [patientId]);
-
-  if (photos.length === 0 && !loading) return null;
-
-  return (
-    <Card className="border-sky-200 mt-6">
-      <CardHeader className="bg-sky-50">
-        <CardTitle className="text-sky-600 text-lg">Fotos del Paciente ({photos.length})</CardTitle>
-      </CardHeader>
-      <CardContent className="pt-4">
-        {loading ? (
-          <p className="text-gray-500">Cargando fotos...</p>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {photos.map((photo: any) => (
-              <div key={photo.id} className="border border-sky-200 rounded-lg overflow-hidden">
-                <img src={photo.url_foto} alt={photo.descripcion || 'Foto'} className="w-full h-36 object-cover" />
-                <div className="p-2 text-xs text-gray-600 flex justify-between">
-                  <span>{photo.tipo_foto === 'ANTES' ? 'Antes' : photo.tipo_foto === 'DURANTE' ? 'Durante' : 'Después'}</span>
-                  {photo.fecha_creacion && <span>{photo.fecha_creacion.split('T')[0]}</span>}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
   );
 }

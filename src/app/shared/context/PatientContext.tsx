@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
 import { patients as initialPatients, type Patient } from '../data/mockData';
+import { getLocalDateString } from '../utils/dateUtils';
 
 interface PatientContextType {
   patients: Patient[];
@@ -18,7 +19,7 @@ export function PatientProvider({ children }: { children: ReactNode }) {
     const newPatient: Patient = {
       ...patientData,
       id: `patient-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      registrationDate: new Date().toISOString().split('T')[0],
+      registrationDate: getLocalDateString(),
       isNewPatient: true,
       patientType: patientData.patientType || 'Primera vez',
     };

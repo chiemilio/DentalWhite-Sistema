@@ -2,15 +2,17 @@
 Endpoints de Citas
 """
 from typing import List, Optional
-from datetime import datetime, date, timezone, timedelta
+from datetime import datetime, date
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import select
 from app.models.patient import Patient
 from app.models.employee import Employee
 
 from app.database import get_db
 from app.models.user import User
+from app.models.patient import Patient
 from app.models.appointment import Appointment
 from app.schemas.appointment import AppointmentCreate, AppointmentUpdate, AppointmentResponse
 from app.api.deps import get_current_user, require_role
@@ -65,14 +67,13 @@ def register_and_appointment(
         
         # Create patient
         last_patient = db.query(Patient).order_by(Patient.id.desc()).first()
-        next_num = 1
         if last_patient and last_patient.numero_expediente:
             try:
-                parts = last_patient.numero_expediente.split("-")
-                if len(parts) == 2 and parts[1].isdigit():
-                    next_num = int(parts[1]) + 1
-            except (ValueError, IndexError):
+                next_num = int(last_patient.numero_expediente.split("-")[1]) + 1
+            except:
                 next_num = 1
+        else:
+            next_num = 1
         
         db_patient = Patient(
             usuario_id=db_user.id,
@@ -85,16 +86,8 @@ def register_and_appointment(
         db.flush()
         paciente_db = db_patient
     
-    # Create appointment - parse fecha_hora as local time (no timezone conversion)
-    fecha_hora_str = data.fecha_hora.replace("Z", "+00:00")
-    if "+" not in fecha_hora_str and fecha_hora_str[-1] != "Z":
-        # No timezone info, treat as local time
-        fecha_hora_dt = datetime.fromisoformat(data.fecha_hora)
-    else:
-        # Has timezone info, convert to local (America/Mexico_City, UTC-6)
-        fecha_hora_dt = datetime.fromisoformat(fecha_hora_str)
-        mexico_tz = timezone(timedelta(hours=-6))
-        fecha_hora_dt = fecha_hora_dt.astimezone(mexico_tz)
+    # Create appointment
+    fecha_hora_dt = datetime.fromisoformat(data.fecha_hora.replace("Z", "+00:00"))
     
     nueva_cita = Appointment(
         paciente_id=paciente_db.id,
@@ -102,7 +95,6 @@ def register_and_appointment(
         servicio_id=data.servicio_id,
         sucursal_id=data.sucursal_id,
         estado_cita_id=1,
-        medio_contacto_id=1,
         fecha=fecha_hora_dt.date(),
         hora=fecha_hora_dt.time(),
         duracion_minutos=data.duracion_minutos,
@@ -134,6 +126,7 @@ def list_appointments(
     Lista todas las citas con filtros opcionales
     """
     try:
+        # Cargar relaciones necesarias
         query = db.query(Appointment).options(
             joinedload(Appointment.paciente).joinedload(Patient.usuario),
             joinedload(Appointment.empleado).joinedload(Employee.usuario),
@@ -142,14 +135,7 @@ def list_appointments(
             joinedload(Appointment.estado_cita)
         )
 
-        # Ownership: patients only see their own appointments
-        if current_user.rol and current_user.rol.nombre == "Paciente":
-            patient = db.query(Patient).filter(Patient.usuario_id == current_user.id).first()
-            if patient:
-                query = query.filter(Appointment.paciente_id == patient.id)
-            else:
-                query = query.filter(Appointment.paciente_id == 0)
-
+        # Aplicar filtros
         if fecha_inicio:
             query = query.filter(Appointment.fecha >= fecha_inicio.date())
         if fecha_fin:
@@ -176,15 +162,22 @@ def list_appointments(
         
         if empleado_id:
             query = query.filter(Appointment.empleado_id == empleado_id)
+            print(f"DEBUG: Filtrando por empleado_id={empleado_id}")
         if estado_id:
             query = query.filter(Appointment.estado_cita_id == estado_id)
         if sucursal_id:
             query = query.filter(Appointment.sucursal_id == sucursal_id)
 
         appointments = query.order_by(Appointment.fecha.desc(), Appointment.hora.desc()).offset(skip).limit(limit).all()
+        print(f"Total citas: {len(appointments)} - Usuario: {current_user.email}")
+        for apt in appointments:
+            print(f"  Cita {apt.id}: fecha={apt.fecha}, hora={apt.hora}, estado={apt.estado_cita_id}")
         return [AppointmentResponse.from_orm_with_relations(appointment) for appointment in appointments]
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Error al listar citas")
+        print(f"Error en list_appointments: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
 
 
 @router.get("", response_model=List[AppointmentResponse])
@@ -222,16 +215,6 @@ def get_appointment(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Cita no encontrada"
         )
-
-    # Ownership check: patients can only see their own appointments
-    if current_user.rol and current_user.rol.nombre == "Paciente":
-        patient = db.query(Patient).filter(Patient.usuario_id == current_user.id).first()
-        if not patient or appointment.paciente_id != patient.id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="No tienes permiso para ver esta cita"
-            )
-
     return AppointmentResponse.from_orm_with_relations(appointment)
 
 
@@ -244,7 +227,7 @@ def create_appointment(
     """
     Crea una nueva cita
     """
-    from datetime import datetime, date
+    from datetime import datetime
     from app.models.patient import Patient
     
     # Get patient ID - accept either user ID or patient ID
@@ -253,37 +236,13 @@ def create_appointment(
         (Patient.id == appointment_data.paciente_id)
     ).first()
     if not paciente_db:
-        # Auto-create Patient record if the current user is a patient scheduling for themselves
-        if current_user.rol.nombre == "Paciente" and current_user.id == appointment_data.paciente_id:
-            last_patient = db.query(Patient).order_by(Patient.id.desc()).first()
-            next_num = 1
-            if last_patient and last_patient.numero_expediente:
-                try:
-                    parts = last_patient.numero_expediente.split("-")
-                    if len(parts) == 2 and parts[1].isdigit():
-                        next_num = int(parts[1]) + 1
-                except (ValueError, IndexError):
-                    next_num = 1
-            paciente_db = Patient(
-                usuario_id=current_user.id,
-                tipo_paciente_id=1,
-                numero_expediente=f"PAC-{next_num:06d}",
-                fecha_nacimiento=date(1990, 1, 1),
-                activo=True
-            )
-            db.add(paciente_db)
-            db.flush()
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="El paciente no existe en el sistema"
-            )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El paciente no existe en el sistema"
+        )
     
-    # Buscar empleado - puede ser employee.id o employee.usuario_id
-    empleado_db = db.query(Employee).filter(
-        (Employee.id == appointment_data.empleado_id) |
-        (Employee.usuario_id == appointment_data.empleado_id)
-    ).first()
+    # Convertir empleado_id (usuario_id) a empleado real
+    empleado_db = db.query(Employee).filter(Employee.usuario_id == appointment_data.empleado_id).first()
     if not empleado_db:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -291,18 +250,10 @@ def create_appointment(
         )
     empleado_id_real = empleado_db.id
     
-    # Extraer fecha y hora del campo fecha_hora - parse as local time
+    # Extraer fecha y hora del campo fecha_hora
     fecha_hora_dt = appointment_data.fecha_hora
     if isinstance(fecha_hora_dt, str):
-        fecha_hora_str = fecha_hora_dt.replace('Z', '+00:00')
-        if '+' not in fecha_hora_str and fecha_hora_str[-1] != 'Z':
-            # No timezone info, treat as local time
-            fecha_hora_dt = datetime.fromisoformat(fecha_hora_dt)
-        else:
-            # Has timezone info, convert to local (America/Mexico_City, UTC-6)
-            fecha_hora_dt = datetime.fromisoformat(fecha_hora_str)
-            mexico_tz = timezone(timedelta(hours=-6))
-            fecha_hora_dt = fecha_hora_dt.astimezone(mexico_tz)
+        fecha_hora_dt = datetime.fromisoformat(fecha_hora_dt.replace('Z', '+00:00'))
     
     fecha_cita = fecha_hora_dt.date() if hasattr(fecha_hora_dt, 'date') else fecha_hora_dt.date()
     hora_cita = fecha_hora_dt.time() if hasattr(fecha_hora_dt, 'time') else fecha_hora_dt.time()
@@ -313,7 +264,6 @@ def create_appointment(
         servicio_id=appointment_data.servicio_id,
         sucursal_id=appointment_data.sucursal_id,
         estado_cita_id=appointment_data.estado_cita_id,
-        medio_contacto_id=1,
         fecha=fecha_cita,
         hora=hora_cita,
         duracion_minutos=appointment_data.duracion_minutos,
@@ -348,25 +298,52 @@ def update_appointment(
     # Actualizar campos proporcionados
     update_data = appointment_update.model_dump(exclude_unset=True)
     for field, value in update_data.items():
-        if field == 'fecha_hora' and value is not None:
-            # Parse fecha_hora as local time
-            if isinstance(value, str):
-                fecha_hora_str = value.replace('Z', '+00:00')
-                if '+' not in fecha_hora_str and fecha_hora_str[-1] != 'Z':
-                    value = datetime.fromisoformat(value)
-                else:
-                    value = datetime.fromisoformat(fecha_hora_str)
-                    mexico_tz = timezone(timedelta(hours=-6))
-                    value = value.astimezone(mexico_tz)
-            appointment.fecha = value.date()
-            appointment.hora = value.time()
-        else:
-            setattr(appointment, field, value)
+        setattr(appointment, field, value)
     
     db.commit()
     db.refresh(appointment)
     
     return AppointmentResponse.from_orm_with_relations(appointment)
+
+
+@router.put("/{appointment_id}/status", response_model=AppointmentResponse, tags=["Appointments"])
+def update_appointment_status(
+    appointment_id: int,
+    status_update: AppointmentUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("Admin", "SuperAdmin", "Recepcionista", "Doctor"))
+):
+    """
+    Actualiza el estado de una cita
+    """
+    appointment = db.query(Appointment).filter(Appointment.id == appointment_id).first()
+    if not appointment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Cita no encontrada"
+        )
+
+    update_data = status_update.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(appointment, field, value)
+
+    db.commit()
+    db.refresh(appointment)
+
+    return AppointmentResponse.from_orm_with_relations(appointment)
+
+
+@router.put("/{appointment_id}/status/", response_model=AppointmentResponse, tags=["Appointments"])
+def update_appointment_status_slash(
+    appointment_id: int,
+    status_update: AppointmentUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("Admin", "SuperAdmin", "Recepcionista", "Doctor"))
+):
+    """
+    Actualiza el estado de una cita (trailing slash)
+    """
+    return update_appointment_status(appointment_id, status_update, db, current_user)
 
 
 @router.put("/{appointment_id}/", response_model=AppointmentResponse, tags=["Appointments"])

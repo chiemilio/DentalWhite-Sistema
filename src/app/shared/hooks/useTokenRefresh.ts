@@ -69,6 +69,7 @@ export function useTokenRefresh(options: UseTokenRefreshOptions = {}) {
       try {
         const token = getStoredToken();
         if (!token) {
+          console.log('No token found, logging out');
           logout();
           return;
         }
@@ -77,6 +78,7 @@ export function useTokenRefresh(options: UseTokenRefreshOptions = {}) {
 
         // Token expired
         if (timeRemaining <= 0) {
+          console.log('Token expired, logging out');
           if (showNotifications) {
             toast.error('Tu sesión ha expirado. Por favor inicia sesión nuevamente.');
           }
@@ -86,6 +88,7 @@ export function useTokenRefresh(options: UseTokenRefreshOptions = {}) {
 
         // Token about to expire - refresh it
         if (timeRemaining <= refreshBeforeExpiry) {
+          console.log(`Token expiring in ${timeRemaining}s, refreshing...`);
           isRefreshingRef.current = true;
 
           try {
@@ -98,6 +101,7 @@ export function useTokenRefresh(options: UseTokenRefreshOptions = {}) {
               });
             }
             
+            console.log('Token refreshed successfully');
           } catch (error) {
             console.error('Failed to refresh token:', error);
             if (showNotifications) {
@@ -107,6 +111,10 @@ export function useTokenRefresh(options: UseTokenRefreshOptions = {}) {
           } finally {
             isRefreshingRef.current = false;
           }
+        } else {
+          // Token still valid
+          const minutes = Math.floor(timeRemaining / 60);
+          console.log(`Token valid for ${minutes} more minutes`);
         }
       } catch (error) {
         console.error('Error checking token:', error);
