@@ -326,12 +326,12 @@ export function PatientDashboard() {
     }
   };
 
-  const now = new Date();
+  const todayStr = getLocalDateString();
   const upcomingAppointments = appointments.filter(
-    (apt) => apt.status !== 'cancelled' && parseDateToLocal(apt.date) >= now
+    (apt) => apt.status !== 'cancelled' && apt.date >= todayStr
   );
   const pastAppointments = appointments.filter(
-    (apt) => apt.status === 'completed' || parseDateToLocal(apt.date) < now
+    (apt) => apt.status === 'completed' || apt.date < todayStr
   );
 
   if (isLoading) {
